@@ -1,0 +1,26 @@
+#ifndef UDP_H
+#define UDP_H
+
+
+#include "udpsocket.h"
+
+typedef struct _new_queue {
+    pthread_mutex_t locker;
+    pthread_cond_t cond;
+    uint8_t* buf;
+    int bufsize;
+    int write_ptr;
+    int read_ptr;
+} NewQueue;
+
+class udp
+{
+public:
+    udp();
+    ~udp();
+    void Init();
+};
+
+
+
+#endif // UDP_H
