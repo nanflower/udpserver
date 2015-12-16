@@ -11,6 +11,7 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 TARGET = udpserver
 TEMPLATE = app
 
+LIBS     += -lavcodec -lavfilter -lavformat -lavutil -lswresample -lswscale
 
 SOURCES += main.cpp\
         mainwindow.cpp \
