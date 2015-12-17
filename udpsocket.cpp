@@ -4,7 +4,28 @@ NewQueue recvqueue;
 
 udpsocket::udpsocket()
 {
-
+    for( int i=0; i<VIDEO_NUM; i++ ){
+        pVideoCodec[i] = NULL;
+        pVideoCodecCtx[i] =NULL;
+        videoindex[i] = -1;
+        pVst[i] = NULL;
+        video_num[i] = 0;
+    }
+    for( int i=0; i<AUDIO_NUM; i++ ){
+        pAudioCodec[i] = NULL;
+        pAudioCodecCtx[i] = NULL;
+        audioindex[i] = -1;
+        pAst[i] = NULL;
+        audio_num[i] = 0;
+    }
+    pb = NULL;
+    piFmt = NULL;
+    pFmt = NULL;
+    pframe = NULL;
+    buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*BUFFER_SIZE);
+    pframe = av_frame_alloc();
+    got_picture = 0;
+    frame_size = AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2;
 }
 
 udpsocket::~udpsocket()
@@ -36,27 +57,15 @@ void udpsocket::thread_init(int index)
 int udpsocket::ts_demux()
 {
 
-    uint8_t *buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*BUFFER_SIZE);
     av_register_all();
-    AVCodec *pVideoCodec, *pAudioCodec;
-    AVCodec *pVideoCodec1, *pAudioCodec1;
-    AVCodecContext *pVideoCodecCtx = NULL;
-    AVCodecContext *pAudioCodecCtx = NULL;
-    AVCodecContext *pVideoCodecCtx1 = NULL;
-    AVCodecContext *pAudioCodecCtx1 = NULL;
-    AVIOContext * pb = NULL;
-    AVInputFormat *piFmt = NULL;
-    AVFormatContext *pFmt = NULL;
 
     pb = avio_alloc_context(buf, BUFFER_SIZE, 0, NULL, read_data, NULL, NULL);
     if (!pb) {
         fprintf(stderr, "avio alloc failed!\n");
         return -1;
     }
-    printf("before get input\n");
     if (av_probe_input_buffer(pb, &piFmt, "", NULL, 0, 0) < 0) {
         fprintf(stderr, "probe failed!\n");
-        printf("loop fail\n");
 //			return -1;
     } else {
         fprintf(stdout, "probe success!\n");
@@ -70,7 +79,6 @@ int udpsocket::ts_demux()
     } else {
         fprintf(stdout, "open stream success!\n");
     }
-    printf("find stream info\n");
     //pFmt->probesize = 4096 * 2000;
     //pFmt->max_analyze_duration = 5 * AV_TIME_BASE;
     //pFmt->probesize = 2048;
@@ -84,132 +92,72 @@ int udpsocket::ts_demux()
     printf("dump format\n");
     av_dump_format(pFmt, 0, "", 0);
 
-    int videoindex = -1,videoindex1 = -1;
-    int audioindex = -1,audioindex1 = -1;
+    int videox = 0,audiox = 0;
     for (int i = 0; i < pFmt->nb_streams; i++) {
-        if ( (pFmt->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
-                (videoindex < 0 || videoindex1 < 0) ) {
-            if(videoindex1 > 0){
-                videoindex = i;
-            }
-            else
-                videoindex1 = i;
+        if(videox == 7 && audiox == 7)
+            break;
+        if ( pFmt->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO && videox < 7 ) {
+            videoindex[ videox++ ] = i;
         }
-        if ( (pFmt->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
-                (audioindex < 0 || audioindex1 < 0) ) {
-            if(audioindex1 > 0){
-                audioindex = i;
-            }
-            else
-                audioindex1 = i;
+        if ( pFmt->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO && audiox < 7 ) {
+            audioindex[ audiox++ ] = i;
         }
     }
-    printf("video = %d,audio = %d,video1 = %d ,audio1 = %d\n",videoindex, audioindex, videoindex1, audioindex1);
-    if (videoindex < 0 || audioindex < 0) {
-        fprintf(stderr, "videoindex=%d, audioindex=%d\n", videoindex, audioindex);
+    printf("video = %d,audio = %d,video1 = %d ,audio1 = %d\n",videoindex[0], audioindex[0], videoindex[1], audioindex[1]);
+    if (videoindex[6] < 0 || audioindex[6] < 0) {
+        fprintf(stderr, "videoindex=%d, audioindex=%d\n", videoindex[6], audioindex[6]);
         return -1;
     }
 
-    AVStream *pVst,*pAst;
-    AVStream *pVst1[7],*pAst1[7];
-    pVst = pFmt->streams[videoindex];
-    pAst = pFmt->streams[audioindex];
-
-    pVst1[0] = pFmt->streams[videoindex1];
-    pAst1[0] = pFmt->streams[audioindex1];
-
-    pVideoCodecCtx = pVst->codec;
-    pAudioCodecCtx = pAst->codec;
-
-    pVideoCodecCtx1 = pVst1[0]->codec;
-    pAudioCodecCtx1 = pAst1[0]->codec;
-
-    //VIDEO 0
-    pVideoCodec = avcodec_find_decoder(pVideoCodecCtx->codec_id);
-    if (!pVideoCodec) {
-        fprintf(stderr, "could not find video decoder!\n");
-        return -1;
+    for( int i=0; i<VIDEO_NUM; i++ ){
+        pVst[i] = pFmt->streams[videoindex[i]];
+        pVideoCodecCtx[i] = pVst[i]->codec;
+        pVideoCodec[i] = avcodec_find_decoder(pVideoCodecCtx[i]->codec_id);
+        if (!pVideoCodec[i]) {
+            fprintf(stderr, "could not find video decoder!\n");
+            return -1;
+        }
+        if (avcodec_open2(pVideoCodecCtx[i], pVideoCodec[i], NULL) < 0) {
+            fprintf(stderr, "could not open video codec!\n");
+            return -1;
+        }
     }
-    if (avcodec_open2(pVideoCodecCtx, pVideoCodec, NULL) < 0) {
-        fprintf(stderr, "could not open video codec!\n");
-        return -1;
-    }
-    //VIDEO 1
-    pVideoCodec1 = avcodec_find_decoder(pVideoCodecCtx1->codec_id);
-    if (!pVideoCodec1) {
-        fprintf(stderr, "could not find video decoder!\n");
-        return -1;
-    }
-    if (avcodec_open2(pVideoCodecCtx1, pVideoCodec1, NULL) < 0) {
-        fprintf(stderr, "could not open video codec!\n");
-        return -1;
+    for( int i=0; i<VIDEO_NUM; i++ ){
+        pAst[i] = pFmt->streams[audioindex[i]];
+        pAudioCodecCtx[i] = pAst[i]->codec;
+        pAudioCodec[i] = avcodec_find_decoder(pAudioCodecCtx[i]->codec_id);
+        if (!pAudioCodec[i]) {
+            fprintf(stderr, "could not find audio decoder!\n");
+            return -1;
+        }
+        if (avcodec_open2(pAudioCodecCtx[i], pAudioCodec[i], NULL) < 0) {
+            fprintf(stderr, "could not open audio codec!\n");
+            return -1;
+        }
     }
 
-    //AUDIO 0
-    pAudioCodec = avcodec_find_decoder(pAudioCodecCtx->codec_id);
-    if (!pAudioCodec) {
-        fprintf(stderr, "could not find audio decoder!\n");
-        return -1;
-    }
-    if (avcodec_open2(pAudioCodecCtx, pAudioCodec, NULL) < 0) {
-        fprintf(stderr, "could not open audio codec!\n");
-        return -1;
-    }
-    //AUDIO 1
-    pAudioCodec1 = avcodec_find_decoder(pAudioCodecCtx1->codec_id);
-    if (!pAudioCodec1) {
-        fprintf(stderr, "could not find audio decoder!\n");
-        return -1;
-    }
-    if (avcodec_open2(pAudioCodecCtx1, pAudioCodec1, NULL) < 0) {
-        fprintf(stderr, "could not open audio codec!\n");
-        return -1;
-    }
-
-
-
-    int got_picture;
     //uint8_t samples[AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2];
-    AVFrame *pframe = av_frame_alloc();
-    AVPacket pkt;
     av_init_packet(&pkt);
     printf("start decode\n");
-    int picture_num = 0,picture_num1 = 0;
-    int audio_num = 0,audio_num1 = 0;
     while(1) {
         if (av_read_frame(pFmt, &pkt) >= 0) {
 
-            if (pkt.stream_index == videoindex) {
-                avcodec_decode_video2(pVideoCodecCtx, pframe, &got_picture, &pkt);
-                if (got_picture) {
-                    printf("1 decode %d video num\n",picture_num++);
-        //            fprintf(stdout, "decode one video frame!\r");
-                }
-             }else if (pkt.stream_index == videoindex1) {
-                avcodec_decode_video2(pVideoCodecCtx1, pframe, &got_picture, &pkt);
-                if (got_picture) {
-                    printf("2 decode %d video num\n",picture_num1++);
-        //            fprintf(stdout, "decode one video frame!\r");
-                }
-            }else if (pkt.stream_index == audioindex) {
-                int frame_size = AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2;
-//                if (avcodec_decode_audio3(pAudioCodecCtx, (int16_t *)samples, &frame_size, &pkt) >= 0) {
-//                    fprintf(stdout, "decode one audio frame!\r");
-//                }
-                int audio_id = avcodec_decode_audio4(pAudioCodecCtx, pframe, &frame_size, &pkt);
-                if (audio_id >= 0) {
-                //    fprintf(stdout, "decode one audio frame!\r");
-                    printf("1 decode %d audio num\n",audio_num++);
-                }
-            }else if (pkt.stream_index == audioindex1) {
-                int frame_size = AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2;
-//                if (avcodec_decode_audio3(pAudioCodecCtx, (int16_t *)samples, &frame_size, &pkt) >= 0) {
-//                    fprintf(stdout, "decode one audio frame!\r");
-//                }
-                int audio_id = avcodec_decode_audio4(pAudioCodecCtx1, pframe, &frame_size, &pkt);
-                if (audio_id >= 0) {
-                //    fprintf(stdout, "decode one audio frame!\r");
-                    printf("2 decode %d audio num\n",audio_num1++);
+            for( int i=0; i<VIDEO_NUM; i++ ){
+                if (pkt.stream_index == videoindex[i]) {
+                    avcodec_decode_video2(pVideoCodecCtx[i], pframe, &got_picture, &pkt);
+                    if (got_picture) {
+                        printf("video %d decode %d num\n", i, video_num[i]++);
+                        break;
+                    }
+                 }else if (pkt.stream_index == audioindex[i]) {
+    //                if (avcodec_decode_audio3(pAudioCodecCtx, (int16_t *)samples, &frame_size, &pkt) >= 0) {
+    //                    fprintf(stdout, "decode one audio frame!\r");
+    //                }
+                    if (avcodec_decode_audio4(pAudioCodecCtx[i], pframe, &frame_size, &pkt) >= 0) {
+                    //    fprintf(stdout, "decode one audio frame!\r");
+                        printf("audio %d decode %d num\n", i, audio_num[i]++);
+                        break;
+                    }
                 }
             }
             av_free_packet(&pkt);
