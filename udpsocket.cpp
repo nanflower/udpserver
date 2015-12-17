@@ -39,8 +39,11 @@ int udpsocket::ts_demux()
     uint8_t *buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*BUFFER_SIZE);
     av_register_all();
     AVCodec *pVideoCodec, *pAudioCodec;
+    AVCodec *pVideoCodec1, *pAudioCodec1;
     AVCodecContext *pVideoCodecCtx = NULL;
     AVCodecContext *pAudioCodecCtx = NULL;
+    AVCodecContext *pVideoCodecCtx1 = NULL;
+    AVCodecContext *pAudioCodecCtx1 = NULL;
     AVIOContext * pb = NULL;
     AVInputFormat *piFmt = NULL;
     AVFormatContext *pFmt = NULL;
@@ -72,8 +75,8 @@ int udpsocket::ts_demux()
     //pFmt->max_analyze_duration = 5 * AV_TIME_BASE;
     //pFmt->probesize = 2048;
    // pFmt->max_analyze_duration = 1000;
-    pFmt->probesize = 2048 * 100 ;
-    pFmt->max_analyze_duration = 2048 * 100;
+    pFmt->probesize = 2048 * 1000 ;
+    pFmt->max_analyze_duration = 2048 * 1000;
     if (avformat_find_stream_info(pFmt,0) < 0) {
         fprintf(stderr, "could not fine stream.\n");
         return -1;
@@ -85,31 +88,43 @@ int udpsocket::ts_demux()
     int audioindex = -1,audioindex1 = -1;
     for (int i = 0; i < pFmt->nb_streams; i++) {
         if ( (pFmt->streams[i]->codec->codec_type == AVMEDIA_TYPE_VIDEO) &&
-                (videoindex < 0) ) {
-            if(videoindex1 > 0)
+                (videoindex < 0 || videoindex1 < 0) ) {
+            if(videoindex1 > 0){
                 videoindex = i;
-            videoindex1 = i;
+            }
+            else
+                videoindex1 = i;
         }
         if ( (pFmt->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO) &&
-                (audioindex < 0) ) {
-            if(audioindex1 > 0)
+                (audioindex < 0 || audioindex1 < 0) ) {
+            if(audioindex1 > 0){
                 audioindex = i;
-            audioindex1 = i;
+            }
+            else
+                audioindex1 = i;
         }
     }
-
+    printf("video = %d,audio = %d,video1 = %d ,audio1 = %d\n",videoindex, audioindex, videoindex1, audioindex1);
     if (videoindex < 0 || audioindex < 0) {
         fprintf(stderr, "videoindex=%d, audioindex=%d\n", videoindex, audioindex);
         return -1;
     }
 
     AVStream *pVst,*pAst;
+    AVStream *pVst1[7],*pAst1[7];
     pVst = pFmt->streams[videoindex];
     pAst = pFmt->streams[audioindex];
+
+    pVst1[0] = pFmt->streams[videoindex1];
+    pAst1[0] = pFmt->streams[audioindex1];
 
     pVideoCodecCtx = pVst->codec;
     pAudioCodecCtx = pAst->codec;
 
+    pVideoCodecCtx1 = pVst1[0]->codec;
+    pAudioCodecCtx1 = pAst1[0]->codec;
+
+    //VIDEO 0
     pVideoCodec = avcodec_find_decoder(pVideoCodecCtx->codec_id);
     if (!pVideoCodec) {
         fprintf(stderr, "could not find video decoder!\n");
@@ -119,7 +134,18 @@ int udpsocket::ts_demux()
         fprintf(stderr, "could not open video codec!\n");
         return -1;
     }
+    //VIDEO 1
+    pVideoCodec1 = avcodec_find_decoder(pVideoCodecCtx1->codec_id);
+    if (!pVideoCodec1) {
+        fprintf(stderr, "could not find video decoder!\n");
+        return -1;
+    }
+    if (avcodec_open2(pVideoCodecCtx1, pVideoCodec1, NULL) < 0) {
+        fprintf(stderr, "could not open video codec!\n");
+        return -1;
+    }
 
+    //AUDIO 0
     pAudioCodec = avcodec_find_decoder(pAudioCodecCtx->codec_id);
     if (!pAudioCodec) {
         fprintf(stderr, "could not find audio decoder!\n");
@@ -129,27 +155,61 @@ int udpsocket::ts_demux()
         fprintf(stderr, "could not open audio codec!\n");
         return -1;
     }
+    //AUDIO 1
+    pAudioCodec1 = avcodec_find_decoder(pAudioCodecCtx1->codec_id);
+    if (!pAudioCodec1) {
+        fprintf(stderr, "could not find audio decoder!\n");
+        return -1;
+    }
+    if (avcodec_open2(pAudioCodecCtx1, pAudioCodec1, NULL) < 0) {
+        fprintf(stderr, "could not open audio codec!\n");
+        return -1;
+    }
+
+
 
     int got_picture;
-   uint8_t samples[AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2];
-    AVFrame *pframe = avcodec_alloc_frame();
+    //uint8_t samples[AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2];
+    AVFrame *pframe = av_frame_alloc();
     AVPacket pkt;
     av_init_packet(&pkt);
     printf("start decode\n");
-    int picture_num = 0;
+    int picture_num = 0,picture_num1 = 0;
+    int audio_num = 0,audio_num1 = 0;
     while(1) {
         if (av_read_frame(pFmt, &pkt) >= 0) {
 
             if (pkt.stream_index == videoindex) {
                 avcodec_decode_video2(pVideoCodecCtx, pframe, &got_picture, &pkt);
                 if (got_picture) {
-                    printf("decode %d video num\n",picture_num++);
-                    fprintf(stdout, "decode one video frame!\r");
+                    printf("1 decode %d video num\n",picture_num++);
+        //            fprintf(stdout, "decode one video frame!\r");
+                }
+             }else if (pkt.stream_index == videoindex1) {
+                avcodec_decode_video2(pVideoCodecCtx1, pframe, &got_picture, &pkt);
+                if (got_picture) {
+                    printf("2 decode %d video num\n",picture_num1++);
+        //            fprintf(stdout, "decode one video frame!\r");
                 }
             }else if (pkt.stream_index == audioindex) {
                 int frame_size = AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2;
-                if (avcodec_decode_audio3(pAudioCodecCtx, (int16_t *)samples, &frame_size, &pkt) >= 0) {
-                    fprintf(stdout, "decode one audio frame!\r");
+//                if (avcodec_decode_audio3(pAudioCodecCtx, (int16_t *)samples, &frame_size, &pkt) >= 0) {
+//                    fprintf(stdout, "decode one audio frame!\r");
+//                }
+                int audio_id = avcodec_decode_audio4(pAudioCodecCtx, pframe, &frame_size, &pkt);
+                if (audio_id >= 0) {
+                //    fprintf(stdout, "decode one audio frame!\r");
+                    printf("1 decode %d audio num\n",audio_num++);
+                }
+            }else if (pkt.stream_index == audioindex1) {
+                int frame_size = AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2;
+//                if (avcodec_decode_audio3(pAudioCodecCtx, (int16_t *)samples, &frame_size, &pkt) >= 0) {
+//                    fprintf(stdout, "decode one audio frame!\r");
+//                }
+                int audio_id = avcodec_decode_audio4(pAudioCodecCtx1, pframe, &frame_size, &pkt);
+                if (audio_id >= 0) {
+                //    fprintf(stdout, "decode one audio frame!\r");
+                    printf("2 decode %d audio num\n",audio_num1++);
                 }
             }
             av_free_packet(&pkt);
@@ -217,6 +277,7 @@ void *udpsocket::udp_ts_recv1(void * pArg)
              {
                  printf("received data error!\n");
              }
+           // printf("receive length = %d\n",len);
              put_queue(&recvqueue, buffer, len);
        //      else
        //          printf("socket 1 work\n");
@@ -448,11 +509,11 @@ int udpsocket::read_data(void *opaque, uint8_t *buf, int buf_size) {
 //	UdpParam udphead;
     int size = buf_size;
     int ret;
-    printf("read data %d\n", buf_size);
+   // printf("read data %d\n", buf_size);
     do {
         ret = get_queue(&recvqueue, buf, buf_size);
     } while (ret);
 
-    printf("read data Ok %d\n", buf_size);
+  //  printf("read data Ok %d\n", buf_size);
     return size;
 }

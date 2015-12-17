@@ -37,7 +37,8 @@ extern "C"
 #include<string.h>
 #include<errno.h>
 
-#define BUFFER_SIZE 4096*2000
+#define BUF_SIZE 4096*2000
+#define BUFFER_SIZE 4096
 #define FILE_NAME_MAX_SIZE 512
 #define AVCODEC_MAX_AUDIO_FRAME_SIZE 192000
 
