@@ -64,8 +64,8 @@ public:
     static void* udp_ts_recv3(void *param);
     static void init_queue(NewQueue *que, int size);
     static void free_queue(NewQueue* que);
-    static void put_queue(NewQueue*que, char* buf, int size);
-    static int get_queue(NewQueue*que, uint8_t* buf, int size);
+    static void put_queue( char* buf, int size);
+    static int get_queue(uint8_t* buf, int size);
     static int read_data(void *opaque, uint8_t *buf, int buf_size);
     int ts_demux();
 

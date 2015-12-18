@@ -226,7 +226,7 @@ void *udpsocket::udp_ts_recv1(void * pArg)
                  printf("received data error!\n");
              }
            // printf("receive length = %d\n",len);
-             put_queue(&recvqueue, buffer, len);
+             put_queue( buffer, len);
        //      else
        //          printf("socket 1 work\n");
          }
@@ -398,37 +398,37 @@ void udpsocket::free_queue(NewQueue* que) {
     av_free(que->buf);
 }
 
-void udpsocket::put_queue(NewQueue*que, char* buf, int size) {
-    uint8_t* dst = que->buf + que->write_ptr;
+void udpsocket::put_queue( char* buf, int size) {
+    uint8_t* dst = recvqueue.buf + recvqueue.write_ptr;
 
-    pthread_mutex_lock(&que->locker);
+    pthread_mutex_lock(&recvqueue.locker);
     //printf("dst = %d\n",size);
-    if ((que->write_ptr + size) > que->bufsize) {
-        memcpy(dst, buf, (que->bufsize - que->write_ptr));
-        memcpy(que->buf, buf+(que->bufsize - que->write_ptr), size-(que->bufsize - que->write_ptr));
+    if ((recvqueue.write_ptr + size) > recvqueue.bufsize) {
+        memcpy(dst, buf, (recvqueue.bufsize - recvqueue.write_ptr));
+        memcpy(recvqueue.buf, buf+(recvqueue.bufsize - recvqueue.write_ptr), size-(recvqueue.bufsize - recvqueue.write_ptr));
     } else {
         memcpy(dst, buf, size*sizeof(uint8_t));
     }
-    que->write_ptr = (que->write_ptr + size) % que->bufsize;
-    pthread_cond_signal(&que->cond);
-    pthread_mutex_unlock(&que->locker);
+    recvqueue.write_ptr = (recvqueue.write_ptr + size) % recvqueue.bufsize;
+    pthread_cond_signal(&recvqueue.cond);
+    pthread_mutex_unlock(&recvqueue.locker);
 }
 
-int udpsocket::get_queue(NewQueue*que, uint8_t* buf, int size) {
-    uint8_t* src = que->buf + que->read_ptr;
+int udpsocket::get_queue(uint8_t* buf, int size) {
+    uint8_t* src = recvqueue.buf + recvqueue.read_ptr;
     int wrap = 0;
 
-    pthread_mutex_lock(&que->locker);
+    pthread_mutex_lock(&recvqueue.locker);
 
-    int pos = que->write_ptr;
+    int pos = recvqueue.write_ptr;
 
-    if (pos < que->read_ptr) {
-        pos += que->bufsize;
+    if (pos < recvqueue.read_ptr) {
+        pos += recvqueue.bufsize;
         wrap = 1;
     }
 
-    if ( (que->read_ptr + size) > pos) {
-        pthread_mutex_unlock(&que->locker);
+    if ( (recvqueue.read_ptr + size) > pos) {
+        pthread_mutex_unlock(&recvqueue.locker);
         return 1;
 //		struct timespec timeout;
 //		timeout.tv_sec=time(0)+1;
@@ -442,13 +442,13 @@ int udpsocket::get_queue(NewQueue*que, uint8_t* buf, int size) {
 
     if (wrap) {
         fprintf(stdout, "wrap...\n");
-        memcpy(buf, src, (que->bufsize - que->read_ptr));
-        memcpy(buf+(que->bufsize - que->read_ptr), src+(que->bufsize - que->read_ptr), size-(que->bufsize - que->read_ptr));
+        memcpy(buf, src, (recvqueue.bufsize - recvqueue.read_ptr));
+        memcpy(buf+(recvqueue.bufsize - recvqueue.read_ptr), src+(recvqueue.bufsize - recvqueue.read_ptr), size-(recvqueue.bufsize - recvqueue.read_ptr));
     } else {
         memcpy(buf, src, sizeof(uint8_t)*size);
     }
-    que->read_ptr = (que->read_ptr + size) % que->bufsize;
-    pthread_mutex_unlock(&que->locker);
+    recvqueue.read_ptr = (recvqueue.read_ptr + size) % recvqueue.bufsize;
+    pthread_mutex_unlock(&recvqueue.locker);
 
     return 0;
 }
@@ -459,7 +459,7 @@ int udpsocket::read_data(void *opaque, uint8_t *buf, int buf_size) {
     int ret;
    // printf("read data %d\n", buf_size);
     do {
-        ret = get_queue(&recvqueue, buf, buf_size);
+        ret = get_queue( buf, buf_size);
     } while (ret);
 
   //  printf("read data Ok %d\n", buf_size);
