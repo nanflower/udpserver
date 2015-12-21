@@ -39,6 +39,7 @@ extern "C"
 
 #define VIDEO_NUM 7
 #define AUDIO_NUM 7
+#define VIDEOBUF_SIZE 10000*188
 #define BUF_SIZE 4096*2000 //read buffer
 #define BUFFER_SIZE 4096      //recvfrom buffer
 #define FILE_NAME_MAX_SIZE 512
@@ -59,15 +60,16 @@ public:
     udpsocket();
     ~udpsocket();
     void thread_init(int index);
-    static void* udp_ts_recv1(void *param);
-    static void* udp_ts_recv2(void *param);
-    static void* udp_ts_recv3(void *param);
-    static void init_queue(NewQueue *que, int size);
-    static void free_queue(NewQueue* que);
-    static void put_queue( char* buf, int size);
-    static int get_queue(uint8_t* buf, int size);
+    static void* udp_tsrecv(void *param);
+    void udp_ts_recv(void);
+    void init_buffer(void);
+    void init_queue(NewQueue *que, int size);
+    void free_queue(NewQueue* que);
+    void put_queue(unsigned char* buf, int size);
+    int get_queue(uint8_t* buf, int size);
     static int read_data(void *opaque, uint8_t *buf, int buf_size);
-    int ts_demux();
+    int ts_demux(void);
+    static void* ts_demuxer( void *param );
 
 private:
     AVCodec *pVideoCodec[VIDEO_NUM];
@@ -88,6 +90,10 @@ private:
     int video_num[VIDEO_NUM];
     int audio_num[AUDIO_NUM];
     int frame_size;
+    int multiindex;
+
+
+
 };
 
 #endif // UDPSOCKET_H

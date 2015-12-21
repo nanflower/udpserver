@@ -1,5 +1,4 @@
 #include "udpsocket.h"
-
 NewQueue recvqueue;
 
 udpsocket::udpsocket()
@@ -26,6 +25,7 @@ udpsocket::udpsocket()
     pframe = av_frame_alloc();
     got_picture = 0;
     frame_size = AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2;
+    multiindex = -1;
 }
 
 udpsocket::~udpsocket()
@@ -35,23 +35,41 @@ udpsocket::~udpsocket()
 
 void udpsocket::thread_init(int index)
 {
+    multiindex = index;
+
+    //init_buffer();
     init_queue(&recvqueue, 1024*1024*500);
 
     pthread_t udp_recv_thread;
-    if(index==0){
-        if( 0 != pthread_create( &udp_recv_thread, NULL, udp_ts_recv1, this ) )
-            printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
-    }
-    else if(index==1){
-        if( 0 != pthread_create( &udp_recv_thread, NULL, udp_ts_recv2, this ) )
-            printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
-    }
-    else if(index==2){
-        if( 0 != pthread_create( &udp_recv_thread, NULL, udp_ts_recv3, this ) )
-            printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
-    }
+    memset( &udp_recv_thread, 0, sizeof( udp_recv_thread ) );
 
+    if( 0 != pthread_create( &udp_recv_thread, NULL, udp_tsrecv, this ) )
+        printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
+
+//    pthread_t ts_demux_thread;
+//    memset( &ts_demux_thread, 0, sizeof( ts_demux_thread ) );
+
+//    if( 0 != pthread_create( &ts_demux_thread, NULL, ts_demuxer, this ) )
+//        printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
+
+//    pthread_detach(ts_demux_thread);
     pthread_detach(udp_recv_thread);
+}
+
+void *udpsocket::udp_tsrecv(void *pArg)
+{
+    udpsocket* pTemp = (udpsocket*)pArg;
+    if( pTemp )
+        pTemp->udp_ts_recv();
+    return (void*)NULL;
+}
+
+void *udpsocket::ts_demuxer(void *pArg)
+{
+    udpsocket* pTemp = (udpsocket*) pArg;
+    if( pTemp )
+        pTemp->ts_demux();
+    return (void*)NULL;
 }
 
 int udpsocket::ts_demux()
@@ -64,13 +82,14 @@ int udpsocket::ts_demux()
         fprintf(stderr, "avio alloc failed!\n");
         return -1;
     }
+    printf("demux work\n");
     if (av_probe_input_buffer(pb, &piFmt, "", NULL, 0, 0) < 0) {
         fprintf(stderr, "probe failed!\n");
-//			return -1;
     } else {
         fprintf(stdout, "probe success!\n");
         fprintf(stdout, "format: %s[%s]\n", piFmt->name, piFmt->long_name);
     }
+    printf("demux work\n");
     pFmt = avformat_alloc_context();
     pFmt->pb = pb;
     if (avformat_open_input(&pFmt, "", piFmt, NULL) < 0) {
@@ -171,7 +190,7 @@ int udpsocket::ts_demux()
 
 }
 
-void *udpsocket::udp_ts_recv1(void * pArg)
+void udpsocket::udp_ts_recv(void)
 {
     /* 创建UDP套接口 */
     struct sockaddr_in server_addr;
@@ -179,7 +198,12 @@ void *udpsocket::udp_ts_recv1(void * pArg)
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     //server_addr.sin_addr.s_addr = inet_addr("1.8.84.12");
-    server_addr.sin_port = htons(50101);
+    if(multiindex == 0)
+        server_addr.sin_port = htons(50101);
+    else if(multiindex == 1)
+        server_addr.sin_port = htons(50102);
+    else if(multiindex == 2)
+        server_addr.sin_port = htons(50103);
 
     /* 创建socket */
     int server_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
@@ -202,15 +226,16 @@ void *udpsocket::udp_ts_recv1(void * pArg)
     }
     printf("before server\n");
     /* 数据传输 */
+    multiindex = 1;
     while(1)
     {
+
          /* 定义一个地址，用于捕获客户端地址 */
          struct sockaddr_in client_addr;
          socklen_t client_addr_length = sizeof(client_addr);
          /* 接收数据 */
-         char buffer[BUFFER_SIZE];
+         uint8_t buffer[BUFFER_SIZE];
          bzero(buffer, BUFFER_SIZE);
-
          struct timeval tv;
          fd_set readfds;
          tv.tv_sec = 3;
@@ -228,14 +253,13 @@ void *udpsocket::udp_ts_recv1(void * pArg)
            // printf("receive length = %d\n",len);
              put_queue( buffer, len);
        //      else
-       //          printf("socket 1 work\n");
+      //       printf("socket %d work\n", multiindex);
          }
          else
          {
              printf("error is %d\n",errno);
              printf("timeout!there is no data arrived!\n");
          }
-
      /* 从buffer中拷贝出file_name */
 //     char file_name[FILE_NAME_MAX_SIZE+1];
 //     bzero(file_name,FILE_NAME_MAX_SIZE+1);
@@ -244,142 +268,13 @@ void *udpsocket::udp_ts_recv1(void * pArg)
     }
 }
 
-void *udpsocket::udp_ts_recv2(void * pArg)
-{
-    /* 创建UDP套接口 */
-    struct sockaddr_in server_addr;
-    bzero(&server_addr, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    //server_addr.sin_addr.s_addr = inet_addr("1.8.84.12");
-    server_addr.sin_port = htons(50102);
-
-    /* 创建socket */
-    int server_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if(server_socket_fd == -1)
-    {
-         perror("Create Socket Failed:");
-         exit(1);
-    }
-
-    memset(server_addr.sin_zero,0,8);
-     int re_flag=1;
-     int re_len=sizeof(int);
-     setsockopt(server_socket_fd,SOL_SOCKET,SO_REUSEADDR,&re_flag,re_len);
-
-    /* 绑定套接口 */
-    if(-1 == (bind(server_socket_fd,(struct sockaddr*)&server_addr,sizeof(server_addr))))
-    {
-         perror("Server Bind Failed:");
-         exit(1);
-    }
-    /* 数据传输 */
-    while(1)
-    {
-         /* 定义一个地址，用于捕获客户端地址 */
-         struct sockaddr_in client_addr;
-         socklen_t client_addr_length = sizeof(client_addr);
-         /* 接收数据 */
-         char buffer[BUFFER_SIZE];
-         bzero(buffer, BUFFER_SIZE);
-
-         struct timeval tv;
-         fd_set readfds;
-         tv.tv_sec = 3;
-         tv.tv_usec = 10;
-         FD_ZERO(&readfds);
-         FD_SET(server_socket_fd, &readfds);
-         select(server_socket_fd+1,&readfds,NULL, NULL, &tv);
-         if (FD_ISSET(server_socket_fd,&readfds))
-         {
-             if (recvfrom(server_socket_fd, buffer, BUFFER_SIZE,0,(struct sockaddr*)&client_addr, &client_addr_length) == -1)
-             {
-                 printf("received data error!\n");
-             }
-      //       else
-      //           printf("socket 2 work\n");
-         }
-         else
-         {
-             printf("error is %d\n",errno);
-             printf("timeout!there is no data arrived!\n");
-         }
-
-         /* 从buffer中拷贝出file_name */
-//         char file_name[FILE_NAME_MAX_SIZE+1];
-//         bzero(file_name,FILE_NAME_MAX_SIZE+1);
-//         strncpy(file_name, buffer, strlen(buffer)>FILE_NAME_MAX_SIZE?FILE_NAME_MAX_SIZE:strlen(buffer));
-         //printf("%s\n", file_name);
-    }
-}
-
-void *udpsocket::udp_ts_recv3(void * pArg)
-{
-    /* 创建UDP套接口 */
-    struct sockaddr_in server_addr;
-    bzero(&server_addr, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    //server_addr.sin_addr.s_addr = inet_addr("1.8.84.12");
-    server_addr.sin_port = htons(50103);
-
-    /* 创建socket */
-    int server_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if(server_socket_fd == -1)
-    {
-         perror("Create Socket Failed:");
-         exit(1);
-    }
-
-    memset(server_addr.sin_zero,0,8);
-     int re_flag=1;
-     int re_len=sizeof(int);
-     setsockopt(server_socket_fd,SOL_SOCKET,SO_REUSEADDR,&re_flag,re_len);
-
-    /* 绑定套接口 */
-    if(-1 == (bind(server_socket_fd,(struct sockaddr*)&server_addr,sizeof(server_addr))))
-    {
-         perror("Server Bind Failed:");
-         exit(1);
-    }
-    /* 数据传输 */
-    while(1)
-    {
-         /* 定义一个地址，用于捕获客户端地址 */
-         struct sockaddr_in client_addr;
-         socklen_t client_addr_length = sizeof(client_addr);
-         /* 接收数据 */
-         char buffer[BUFFER_SIZE];
-         bzero(buffer, BUFFER_SIZE);
-
-         struct timeval tv;
-         fd_set readfds;
-         tv.tv_sec = 3;
-         tv.tv_usec = 10;
-         FD_ZERO(&readfds);
-         FD_SET(server_socket_fd, &readfds);
-         select(server_socket_fd+1,&readfds,NULL, NULL, &tv);
-         if (FD_ISSET(server_socket_fd,&readfds))
-         {
-             if (recvfrom(server_socket_fd, buffer, BUFFER_SIZE,0,(struct sockaddr*)&client_addr, &client_addr_length) == -1)
-             {
-                 printf("received data error!\n");
-             }
-         //    else
-       //          printf("socket 3 work\n");
-         }
-         else
-         {
-             printf("error is %d\n",errno);
-             printf("timeout!there is no data arrived!\n");
-         }
-
-         /* 从buffer中拷贝出file_name */
-//         char file_name[FILE_NAME_MAX_SIZE+1];
-//         bzero(file_name,FILE_NAME_MAX_SIZE+1);
-//         strncpy(file_name, buffer, strlen(buffer)>FILE_NAME_MAX_SIZE?FILE_NAME_MAX_SIZE:strlen(buffer));
-         //printf("%s\n", file_name);
-    }
+void udpsocket::init_buffer(){
+    pthread_mutex_init(&recvqueue.locker, NULL);
+    pthread_cond_init(&recvqueue.cond, NULL);
+    recvqueue.buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*1024*1024*500);
+    recvqueue.read_ptr = recvqueue.write_ptr = 0;
+    recvqueue.bufsize = 1024*1024*500;
+    printf("buffer size = %d\n",recvqueue.bufsize);
 }
 
 void udpsocket::init_queue(NewQueue *que, int size) {
@@ -398,7 +293,7 @@ void udpsocket::free_queue(NewQueue* que) {
     av_free(que->buf);
 }
 
-void udpsocket::put_queue( char* buf, int size) {
+void udpsocket::put_queue(unsigned char* buf, int size) {
     uint8_t* dst = recvqueue.buf + recvqueue.write_ptr;
 
     pthread_mutex_lock(&recvqueue.locker);
@@ -455,11 +350,13 @@ int udpsocket::get_queue(uint8_t* buf, int size) {
 
 int udpsocket::read_data(void *opaque, uint8_t *buf, int buf_size) {
 //	UdpParam udphead;
+    udpsocket* pTemp = (udpsocket*) opaque;
+
     int size = buf_size;
     int ret;
    // printf("read data %d\n", buf_size);
     do {
-        ret = get_queue( buf, buf_size);
+        ret = pTemp->get_queue( buf, buf_size);
     } while (ret);
 
   //  printf("read data Ok %d\n", buf_size);
