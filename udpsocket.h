@@ -37,6 +37,9 @@ extern "C"
 #include<string.h>
 #include<errno.h>
 
+#include "tsrecvpool.h"
+#include "tspoolqueue.h"
+
 #define VIDEO_NUM 7
 #define AUDIO_NUM 7
 #define VIDEOBUF_SIZE 10000*188
@@ -48,7 +51,7 @@ extern "C"
 typedef struct _new_queue {
     pthread_mutex_t locker;
     pthread_cond_t cond;
-    uint8_t* buf;
+    uint8_t* q_buf;
     int bufsize;
     int write_ptr;
     int read_ptr;
@@ -61,37 +64,35 @@ public:
     ~udpsocket();
     void thread_init(int index);
     static void* udp_tsrecv(void *param);
+    static void* udp_tsrecv1(void *param);
     void udp_ts_recv(void);
-    void init_buffer(void);
-    void init_queue(NewQueue *que, int size);
-    void free_queue(NewQueue* que);
-    void put_queue(unsigned char* buf, int size);
-    int get_queue(uint8_t* buf, int size);
+    void udp_ts_recv1(void);
     static int read_data(void *opaque, uint8_t *buf, int buf_size);
-    int ts_demux(void);
+    static int read_data1(void *opaque, uint8_t *buf, int buf_size);
+    int ts_demux(int index);
+    int thread_test();
     static void* ts_demuxer( void *param );
-
+    static void* ts_demuxer1(void *param);
+    tspoolqueue* m_tsRecvPool;
 private:
-    AVCodec *pVideoCodec[VIDEO_NUM];
-    AVCodec *pAudioCodec[AUDIO_NUM];
-    AVCodecContext *pVideoCodecCtx[VIDEO_NUM];
-    AVCodecContext *pAudioCodecCtx[AUDIO_NUM];
-    AVIOContext * pb;
-    AVInputFormat *piFmt;
-    AVFormatContext *pFmt;
-    uint8_t *buf;
-    int videoindex[VIDEO_NUM];
-    int audioindex[AUDIO_NUM];
-    AVStream *pVst[VIDEO_NUM];
-    AVStream *pAst[AUDIO_NUM];
-    AVFrame *pframe;
-    AVPacket pkt;
-    int got_picture;
-    int video_num[VIDEO_NUM];
-    int audio_num[AUDIO_NUM];
-    int frame_size;
-    int multiindex;
-
+//    AVCodec *pVideoCodec[VIDEO_NUM];
+//    AVCodec *pAudioCodec[AUDIO_NUM];
+//    AVCodecContext *pVideoCodecCtx[VIDEO_NUM];
+//    AVCodecContext *pAudioCodecCtx[AUDIO_NUM];
+//    AVIOContext * pb;
+//    AVInputFormat *piFmt;
+//    AVFormatContext *pFmt;
+//    uint8_t *buffer;
+//    int videoindex[VIDEO_NUM];
+//    int audioindex[AUDIO_NUM];
+//    AVStream *pVst[VIDEO_NUM];
+//    AVStream *pAst[AUDIO_NUM];
+//    AVFrame *pframe;
+//    AVPacket pkt;
+//    int got_picture;
+//    int video_num[VIDEO_NUM];
+//    int audio_num[AUDIO_NUM];
+//    int frame_size;
 
 
 };

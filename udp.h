@@ -12,7 +12,7 @@ public:
     ~udp();
     int Init();
 private:
-
+    udpsocket* m_ChannelGet[2];
 };
 
 
