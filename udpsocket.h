@@ -74,7 +74,10 @@ public:
     static void* ts_demuxer( void *param );
     static void* ts_demuxer1(void *param);
     tspoolqueue* m_tsRecvPool;
+//    static int write_buffer(void *opaque, uint8_t *buf, int buf_size);
+//    int write_bufferq(uint8_t *buf, int buf_size);
 private:
+
 //    AVCodec *pVideoCodec[VIDEO_NUM];
 //    AVCodec *pAudioCodec[AUDIO_NUM];
 //    AVCodecContext *pVideoCodecCtx[VIDEO_NUM];

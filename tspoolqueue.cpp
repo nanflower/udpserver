@@ -18,6 +18,8 @@ int bufsize1;
 volatile int write_ptr1;
 volatile int read_ptr1;
 
+pthread_mutex_t decodelocker1;
+FILE *fpv1;
 
 tspoolqueue::tspoolqueue()
 {
@@ -38,6 +40,9 @@ tspoolqueue::tspoolqueue()
     read_ptr1 = write_ptr1 = 0;
     bufsize1 = 1024*1024*50;
     printf("buffer size = %d\n",bufsize1);
+
+    fpv1 = fopen("channel 1 video 1.h264","ab");
+    pthread_mutex_init(&decodelocker1, NULL);
 }
 
 
@@ -53,6 +58,7 @@ void tspoolqueue::free_queue(void) {
     av_free(q_buf);
     pthread_mutex_destroy(&locker1);
     av_free(q_buf1);
+    pthread_mutex_destroy(&decodelocker1);
 }
 
 
@@ -168,3 +174,8 @@ int tspoolqueue::get_queue1(uint8_t* buf, int size) {
     return 0;
 }
 
+void tspoolqueue::write_buffer(uint8_t* buf, int size) {
+//    pthread_mutex_lock(&decodelocker1);
+    fwrite(buf, size, 1, fpv1);
+//    pthread_mutex_lock(&decodelocker1);
+}

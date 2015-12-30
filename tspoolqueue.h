@@ -41,6 +41,10 @@ public:
     void put_queue1(unsigned char* buf, int size);
     int get_queue1(uint8_t* buf, int size);
 
+    //decode
+    void write_buffer(uint8_t* buf, int size);
+    int get_buffer(uint8_t* buf,int size);
+
 //    pthread_mutex_t locker;
 //    pthread_cond_t cond;
 //    uint8_t* q_buf;
