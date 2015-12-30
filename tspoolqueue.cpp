@@ -64,8 +64,8 @@ void tspoolqueue::free_queue(void) {
 
 void tspoolqueue::put_queue(unsigned char* buf, int size) {
 //    printf(" put queue :   tid %lu\n",(unsigned long)pthread_self());
-    dst = q_buf + write_ptr;
     pthread_mutex_lock(&locker);
+    dst = q_buf + write_ptr;
     if ((write_ptr + size) > bufsize) {
         memcpy(dst, buf, (bufsize - write_ptr));
         memcpy(q_buf, buf+(bufsize - write_ptr), size-(bufsize - write_ptr));
@@ -79,17 +79,18 @@ void tspoolqueue::put_queue(unsigned char* buf, int size) {
 
 int tspoolqueue::get_queue(uint8_t* buf, int size) {
  //   printf(" get queue : tid %lu write_ptr : %d read_ptr : %d\n",(unsigned long)pthread_self(),write_ptr,read_ptr);
-    src = q_buf + read_ptr;
-    int wrap = 0;
   //  printf("size = %d\n",size);
 
     pthread_mutex_lock(&locker);
+    src = q_buf + read_ptr;
+    int wrap = 0;
 
     int pos = write_ptr;
 
     if (pos < read_ptr) {
         pos += bufsize;
-        wrap = 1;
+        if(size + read_ptr > bufsize)
+            wrap = 1;
     }
 
     if ( (read_ptr + size) > pos) {
@@ -108,7 +109,10 @@ int tspoolqueue::get_queue(uint8_t* buf, int size) {
     if (wrap) {
         fprintf(stdout, "wrap...\n");
         memcpy(buf, src, (bufsize - read_ptr));
-        memcpy(buf+(bufsize - read_ptr), src+(bufsize - read_ptr), size-(bufsize - read_ptr));
+//        memcpy(buf+(bufsize - read_ptr), src+(bufsize - read_ptr), size-(bufsize - read_ptr));
+        src = q_buf + 0;
+        memcpy(buf+(bufsize - read_ptr), src, size-(bufsize - read_ptr));
+        printf("get 1\n");
     } else {
         memcpy(buf, src, sizeof(uint8_t)*size);
     }

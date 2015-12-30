@@ -115,7 +115,8 @@ int udpsocket::ts_demux(int index)
     int audioindex[AUDIO_NUM];
     AVStream *pVst[VIDEO_NUM];
     AVStream *pAst[AUDIO_NUM];
-    AVFrame *pframe;
+    AVFrame *pVideoframe[VIDEO_NUM];
+    AVFrame *pAudioframe[AUDIO_NUM];
     AVPacket pkt;
     int got_picture;
     int video_num[VIDEO_NUM];
@@ -128,6 +129,8 @@ int udpsocket::ts_demux(int index)
         videoindex[i] = -1;
         pVst[i] = NULL;
         video_num[i] = 0;
+        pVideoframe[i] = NULL;
+        pVideoframe[i] = av_frame_alloc();
     }
     for( int i=0; i<AUDIO_NUM; i++ ){
         pAudioCodec[i] = NULL;
@@ -135,13 +138,13 @@ int udpsocket::ts_demux(int index)
         audioindex[i] = -1;
         pAst[i] = NULL;
         audio_num[i] = 0;
+        pAudioframe[i] = NULL;
+        pAudioframe[i] = av_frame_alloc();
     }
     pb = NULL;
     piFmt = NULL;
     pFmt = NULL;
-    pframe = NULL;
     buffer = (uint8_t*)av_mallocz(sizeof(uint8_t)*BUFFER_SIZE);
-    pframe = av_frame_alloc();
     got_picture = 0;
     frame_size = AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2;
 
@@ -296,7 +299,6 @@ int udpsocket::ts_demux(int index)
     }
 
     //uint8_t samples[AVCODEC_MAX_AUDIO_FRAME_SIZE*3/2];
-    AVFrame *frame = av_frame_alloc();
     av_init_packet(&pkt);
     av_init_packet(&enc_pkt);
     printf("start decode\n");
@@ -305,18 +307,17 @@ int udpsocket::ts_demux(int index)
             for( int i=0; i<1; i++ ){
                 if (pkt.stream_index == videoindex[i]) {
 //                    av_frame_free(&pframe);
-                    avcodec_decode_video2(pVideoCodecCtx[i], pframe, &got_picture, &pkt);
+                    avcodec_decode_video2(pVideoCodecCtx[i], pVideoframe[i], &got_picture, &pkt);
                     if (got_picture) {
                         if(videoindex[i] == 0){
-                            printf("reach \n");
 //                            m_tsRecvPool->write_buffer(pkt.data, pkt.size);
-                            pframe->pts = av_frame_get_best_effort_timestamp(pframe);
-                            pframe->pict_type = AV_PICTURE_TYPE_NONE;
+                            pVideoframe[i]->pts = av_frame_get_best_effort_timestamp(pVideoframe[i]);
+                            pVideoframe[i]->pict_type = AV_PICTURE_TYPE_NONE;
                             enc_pkt.data = NULL;
                             enc_pkt.size = 0;
                             av_init_packet(&enc_pkt);
                             re = avcodec_encode_video2(ofmt_ctx->streams[videoindex[i]]->codec, &enc_pkt,
-                                    pframe, &enc_got_frame);
+                                    pVideoframe[i], &enc_got_frame);
                             printf("enc_got_frame =%d, re = %d \n",enc_got_frame, re);
                             printf("Encode 1 Packet\tsize:%d\tpts:%lld\n",enc_pkt.size,enc_pkt.pts);
 //                            av_frame_free(&frame);
@@ -346,7 +347,7 @@ int udpsocket::ts_demux(int index)
     //                if (avcodec_decode_audio3(pAudioCodecCtx, (int16_t *)samples, &frame_size, &pkt) >= 0) {
     //                    fprintf(stdout, "decode one audio frame!\r");
     //                }
-                    if (avcodec_decode_audio4(pAudioCodecCtx[i], pframe, &frame_size, &pkt) >= 0) {
+                    if (avcodec_decode_audio4(pAudioCodecCtx[i], pAudioframe[i], &frame_size, &pkt) >= 0) {
                     //    fprintf(stdout, "decode one audio frame!\r");
 //                        printf("index = %d audio %d decode %d num\n", index, i, audio_num[i]++);
                         break;
@@ -354,11 +355,17 @@ int udpsocket::ts_demux(int index)
                 }
             }
             av_free_packet(&pkt);
+            av_free_packet(&enc_pkt);
         }
     }
 
     av_free(buffer);
-    av_free(pframe);
+    for(int i=0; i<VIDEO_NUM; i++)
+        av_free(pVideoframe[i]);
+
+    for(int i=0; i<AUDIO_NUM; i++)
+        av_free(pAudioframe[i]);
+
     return 0;
 
 }
