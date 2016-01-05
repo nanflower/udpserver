@@ -57,14 +57,14 @@ private:
 
 
 private:
-    unsigned long                           m_lSampleRate;
-    unsigned int                               m_nChannels;
-    unsigned int                               m_nPCMBitSize;
-    unsigned long                           m_lInputSamples;
-    unsigned long                           m_lMaxOutputBytes;
-    unsigned char*                            m_pbAACBuffer;
-    faacEncHandle                m_pEncoderHander;
-    PSAMPLE                        m_pSample;
+    unsigned long       m_lSampleRate;
+    unsigned int          m_nChannels;
+    unsigned int          m_nPCMBitSize;
+    unsigned long       m_lInputSamples;
+    unsigned long       m_lMaxOutputBytes;
+    unsigned char*     m_pbAACBuffer;
+    faacEncHandle      m_pEncoderHander;
+    PSAMPLE             m_pSample;
 //    CLoopListBuffer*            m_pLoopListBuffer;
 };
 

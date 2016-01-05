@@ -17,6 +17,7 @@ extern "C"
 #endif
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/audio_fifo.h>
 #ifdef __cplusplus
 };
 #endif
@@ -37,8 +38,20 @@ extern "C"
 #include<string.h>
 #include<errno.h>
 
-#include "tsrecvpool.h"
+//intel encoder
+//#include "mfxmvc.h"
+#include "mfxvideo.h"
+#include "mfxvp8.h"
+#include "mfxvideo++.h"
+#include "mfxplugin.h"
+#include "mfxplugin++.h"
+#include "mfxla.h"
+#include <vector>
+#include <memory>
+
+//#include "tsrecvpool.h"
 #include "tspoolqueue.h"
+#include "transcodepool.h"
 
 #define VIDEO_NUM 7
 #define AUDIO_NUM 7
@@ -48,14 +61,14 @@ extern "C"
 #define FILE_NAME_MAX_SIZE 512
 #define AVCODEC_MAX_AUDIO_FRAME_SIZE 192000
 
-typedef struct _new_queue {
-    pthread_mutex_t locker;
-    pthread_cond_t cond;
-    uint8_t* q_buf;
-    int bufsize;
-    int write_ptr;
-    int read_ptr;
-} NewQueue;
+//typedef struct _new_queue {
+//    pthread_mutex_t locker;
+//    pthread_cond_t cond;
+//    uint8_t* q_buf;
+//    int bufsize;
+//    int write_ptr;
+//    int read_ptr;
+//} NewQueue;
 
 class udpsocket
 {
@@ -73,6 +86,8 @@ public:
     int thread_test();
     static void* ts_demuxer( void *param );
     static void* ts_demuxer1(void *param);
+    static void* video_encoder(void *param);
+    void run_video_encoder(void);
     tspoolqueue* m_tsRecvPool;
 //    static int write_buffer(void *opaque, uint8_t *buf, int buf_size);
 //    int write_bufferq(uint8_t *buf, int buf_size);

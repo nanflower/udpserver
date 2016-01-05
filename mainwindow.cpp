@@ -24,8 +24,8 @@ MainWindow::MainWindow(QWidget *parent) :
 //    }
 
 
-    udp udpsocket;
-    udpsocket.Init();
+    udp udpsocketrev;
+    udpsocketrev.Init();
 
 
 
