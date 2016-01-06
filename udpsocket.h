@@ -18,6 +18,7 @@ extern "C"
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
+#include "libswresample/swresample.h"
 #ifdef __cplusplus
 };
 #endif
@@ -89,6 +90,7 @@ public:
     static void* video_encoder(void *param);
     void run_video_encoder(void);
     tspoolqueue* m_tsRecvPool;
+//    int init_converted_samples(uint8_t ***converted_input_samples, AVCodecContext *output_codec_context, int frame_size);
 //    static int write_buffer(void *opaque, uint8_t *buf, int buf_size);
 //    int write_bufferq(uint8_t *buf, int buf_size);
 private:
