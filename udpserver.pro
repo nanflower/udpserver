@@ -30,7 +30,14 @@ SOURCES += main.cpp\
     transcodepool.cpp \
     audio_encode.cpp \
     pipeline_encode.cpp \
-    one_process.cpp
+    one_process.cpp \
+    base_allocator.cpp \
+    vaapi_device.cpp \
+    vaapi_utils.cpp \
+    vaapi_utils_drm.cpp \
+    utils.cpp \
+    sysmem_allocator.cpp \
+    outudppool.cpp
 
 HEADERS  += mainwindow.h \
     udp.h \
@@ -39,6 +46,17 @@ HEADERS  += mainwindow.h \
     transcodepool.h \
     audio_encode.h \
     pipeline_encode.h \
-    one_process.h
+    one_process.h \
+    base_allocator.h \
+    vaapi_device.h \
+    vaapi_utils.h \
+    vaapi_utils_drm.h \
+    hw_device.h \
+    utils.h \
+    sysmem_allocator.h \
+    global.h \
+    values.h \
+    outudppool.h \
+    sparams.h
 
 FORMS    += mainwindow.ui

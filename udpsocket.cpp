@@ -146,6 +146,9 @@ int udpsocket::ts_demux(int index)
     transcodepool*  pVideoTransPool[VIDEO_NUM];
     transcodepool*  pAudioTransPool[AUDIO_NUM];
 
+    for(    int i=0; i<1; i++)
+        pVideoTransPool[i]->Init();
+
     for( int i=0; i<VIDEO_NUM; i++ ){
         pVideoCodec[i] = NULL;
         pVideoCodecCtx[i] =NULL;
@@ -180,14 +183,12 @@ int udpsocket::ts_demux(int index)
     //encoder
     AVFormatContext *ofmt_ctx = NULL;
     AVPacket enc_pkt;
-    int enc_got_frame = 0;
     AVStream *out_stream;
     AVCodecContext *enc_ctx;
     AVCodec *encoder;
 
     AVFormatContext *outAudioFormatCtx[AUDIO_NUM];
     AVPacket audio_pkt;
-    int audio_got_frame = 0;
     AVStream *audio_stream[AUDIO_NUM];
     AVCodecContext *AudioEncodeCtx[AUDIO_NUM];
     AVCodec *AudioEncoder[AUDIO_NUM];
@@ -289,51 +290,51 @@ int udpsocket::ts_demux(int index)
     }
 
     //video encoder init
-    avformat_alloc_output_context2(&ofmt_ctx, NULL, "h264", NULL);
+//    avformat_alloc_output_context2(&ofmt_ctx, NULL, "h264", NULL);
     unsigned char* outbuffer = NULL;
     outbuffer = (unsigned char*)av_malloc(1024*1000);
-    AVIOContext *avio_out = NULL;
-    avio_out = avio_alloc_context(outbuffer, 1024*1000, 0, NULL, NULL, write_buffer,NULL);
-    if(avio_out == NULL){
-        printf("avio_out error\n");
-        return -1;
-    }
-    ofmt_ctx->pb = avio_out;
-    ofmt_ctx->flags = AVFMT_FLAG_CUSTOM_IO;
-    out_stream = avformat_new_stream(ofmt_ctx, NULL);
-    if(!out_stream){
-        av_log(NULL, AV_LOG_ERROR, "Failed allocating output stream\n");
-        return -1;
-    }
-    enc_ctx = out_stream->codec;
-    encoder = avcodec_find_encoder(AV_CODEC_ID_H264);
-    enc_ctx->height = pVideoCodecCtx[0]->height;
-    enc_ctx->width = pVideoCodecCtx[0]->width;
-    enc_ctx->sample_aspect_ratio = pVideoCodecCtx[0]->sample_aspect_ratio;
-    enc_ctx->pix_fmt = encoder->pix_fmts[0];
-    out_stream->time_base = pVst[0]->time_base;
-//    out_stream->time_base.num = 1;
-//    out_stream->time_base.den = 25;
-    enc_ctx->me_range = 16;
-    enc_ctx->max_qdiff = 4;
-    enc_ctx->qmin = 25;
-    enc_ctx->qmax = 40;
-    enc_ctx->qcompress = 0.6;
-    enc_ctx->refs = 3;
-    enc_ctx->bit_rate = 1000000;
-    int re = avcodec_open2(enc_ctx, encoder, NULL);
-    if (re < 0) {
-        av_log(NULL, AV_LOG_ERROR, "Cannot open video encoder for stream \n");
-        return re;
-    }
+//    AVIOContext *avio_out = NULL;
+//    avio_out = avio_alloc_context(outbuffer, 1024*1000, 0, NULL, NULL, write_buffer,NULL);
+//    if(avio_out == NULL){
+//        printf("avio_out error\n");
+//        return -1;
+//    }
+//    ofmt_ctx->pb = avio_out;
+//    ofmt_ctx->flags = AVFMT_FLAG_CUSTOM_IO;
+//    out_stream = avformat_new_stream(ofmt_ctx, NULL);
+//    if(!out_stream){
+//        av_log(NULL, AV_LOG_ERROR, "Failed allocating output stream\n");
+//        return -1;
+//    }
+//    enc_ctx = out_stream->codec;
+//    encoder = avcodec_find_encoder(AV_CODEC_ID_H264);
+//    enc_ctx->height = pVideoCodecCtx[0]->height;
+//    enc_ctx->width = pVideoCodecCtx[0]->width;
+//    enc_ctx->sample_aspect_ratio = pVideoCodecCtx[0]->sample_aspect_ratio;
+//    enc_ctx->pix_fmt = encoder->pix_fmts[0];
+//    out_stream->time_base = pVst[0]->time_base;
+////    out_stream->time_base.num = 1;
+////    out_stream->time_base.den = 25;
+//    enc_ctx->me_range = 16;
+//    enc_ctx->max_qdiff = 4;
+//    enc_ctx->qmin = 25;
+//    enc_ctx->qmax = 40;
+//    enc_ctx->qcompress = 0.6;
+//    enc_ctx->refs = 3;
+//    enc_ctx->bit_rate = 1000000;
+//    int re = avcodec_open2(enc_ctx, encoder, NULL);
+//    if (re < 0) {
+//        av_log(NULL, AV_LOG_ERROR, "Cannot open video encoder for stream \n");
+//        return re;
+//    }
 
-    if(ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
-        enc_ctx->flags |= CODEC_FLAG_GLOBAL_HEADER;
-    re = avformat_write_header(ofmt_ctx, NULL);
-    if(re < 0){
-        av_log(NULL, AV_LOG_ERROR, "Error occured when opening output file\n");
-        return re;
-    }
+//    if(ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+//        enc_ctx->flags |= CODEC_FLAG_GLOBAL_HEADER;
+//    re = avformat_write_header(ofmt_ctx, NULL);
+//    if(re < 0){
+//        av_log(NULL, AV_LOG_ERROR, "Error occured when opening output file\n");
+//        return re;
+//    }
 
     //audio encoder
     for( int i=0; i<AUDIO_NUM; i++){
@@ -384,7 +385,7 @@ int udpsocket::ts_demux(int index)
     AudioEncodeCtx[0]->sample_rate= 48000;//44100
     AudioEncodeCtx[0]->channel_layout=AV_CH_LAYOUT_STEREO;
     AudioEncodeCtx[0]->channels = av_get_channel_layout_nb_channels(AudioEncodeCtx[0]->channel_layout);
-    AudioEncodeCtx[0]->bit_rate = 48000;//64000
+    AudioEncodeCtx[0]->bit_rate = 64000;//64000
     /** Allow the use of the experimental AAC encoder */
     AudioEncodeCtx[0]->strict_std_compliance = FF_COMPLIANCE_EXPERIMENTAL;
 
@@ -436,10 +437,13 @@ int udpsocket::ts_demux(int index)
                     avcodec_decode_video2(pVideoCodecCtx[i], pVideoframe[i], &got_picture, &pkt);
                     if (got_picture) {
                         if(videoindex[i] == 0){
+                            printf("pkt .size = %d \n",pkt.size);
 //                            m_tsRecvPool->write_buffer(pkt.data, pkt.size);
-//                            pVideoframe[i]->pts = av_frame_get_best_effort_timestamp(pVideoframe[i]);
+                            pVideoframe[i]->pts = av_frame_get_best_effort_timestamp(pVideoframe[i]);
                             pVideoframe[i]->pict_type = AV_PICTURE_TYPE_NONE;
-//                            pVideoTransPool[i]->PutFrame( pVideoframe[i]->data, pVideoframe[i]->size, pVideoframe[i]->pts );
+//                            printf("videoframesize0 = %d, size1 = %d, size2 = %d, size3 = %d, size4 = %d,format = %d\n",pVideoframe[i]->linesize[0],
+//                                    pVideoframe[i]->linesize[1],pVideoframe[i]->linesize[2],pVideoframe[i]->linesize[3],pVideoframe[i]->linesize[4],pVideoframe[i]->format);
+                            pVideoTransPool[i]->PutFrame( pVideoframe[i] ,i);
 
                             /*  ffmpeg encoder */
 //                            enc_pkt.data = NULL;
@@ -459,6 +463,7 @@ int udpsocket::ts_demux(int index)
                  }else if (pkt.stream_index == audioindex[i]) {
                     if (avcodec_decode_audio4(pAudioCodecCtx[i], pAudioframe[i], &frame_size, &pkt) >= 0) {
                         if (i == 0){
+
 //                                fwrite(pAudioframe[i]->data[0],pAudioframe[i]->linesize[0], 1, fp_a);
 //                                printf("index = %d audio %d decode %d num\n", index, i, audio_num[i]++);
                             uint8_t *converted_input_samples = NULL;
@@ -476,8 +481,8 @@ int udpsocket::ts_demux(int index)
 //                            init_converted_samples(&converted_input_samples, output_codec_context, pAudioframe[i]->nb_samples);
 
                             /** Initialize temporary storage for one output frame. */
-                            printf("pkt.size = %d , pkt.pts = %d ,pkt.dts = %d\n",pkt.size, pkt.pts, pkt.dts);
-                            printf("framesize = %d, audioframesize = %d\n", pAudioframe[i]->nb_samples, frame_size);
+//                            printf("pkt.size = %d , pkt.pts = %d ,pkt.dts = %d\n",pkt.size, pkt.pts, pkt.dts);
+//                            printf("framesize = %d, audioframesize = %d\n", pAudioframe[i]->nb_samples, frame_size);
 
 //                            pOutAudioframe[i]->pict_type = AV_PICTURE_TYPE_NONE;
                             int got_frame=0;

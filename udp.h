@@ -2,7 +2,7 @@
 #define UDP_H
 
 #include "udpsocket.h"
-
+#include "one_process.h"
 
 
 class udp
@@ -13,6 +13,8 @@ public:
     int Init();
 private:
     udpsocket* m_ChannelGet[2];
+    one_process* m_VideoEncode;
+
 };
 
 
