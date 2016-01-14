@@ -1,20 +1,15 @@
 #include "transcodepool.h"
 
+//int Timewrite
 pthread_mutex_t lockerx;
-pthread_mutex_t ylocker[PIN_NUM];
-pthread_mutex_t uvlocker[PIN_NUM];
-pthread_cond_t ycond[PIN_NUM];
-pthread_cond_t uvcond[PIN_NUM];
-uint8_t* yQueue_buf[PIN_NUM];
-uint8_t* uvQueue_buf[PIN_NUM];
-int ybufsize[PIN_NUM];
-int uvbufsize[PIN_NUM];
-volatile int ywrite_ptr[PIN_NUM];
-volatile int yread_ptr[PIN_NUM];
-volatile int uvwrite_ptr[PIN_NUM];
-volatile int uvread_ptr[PIN_NUM];
-unsigned long TimeStamp;
+//    pthread_cond_t ycond[PIN_NUM];
+uint8_t* yQueue_buf;
+int ybufsize;
+volatile int ywrite_ptr;
+volatile int yread_ptr;
+unsigned long long TimeStamp;
 
+FILE *fp_temp;
 
 transcodepool::transcodepool()
 {
@@ -24,10 +19,7 @@ transcodepool::transcodepool()
 transcodepool::~transcodepool()
 {
     for(int i=0; i<PIN_NUM; i++){
-        pthread_mutex_destroy(&ylocker[i]);
-        av_free(yQueue_buf[i]);
-        pthread_mutex_destroy(&uvlocker[i]);
-        av_free(uvQueue_buf[i]);
+        av_free(yQueue_buf);
     }
     pthread_mutex_destroy(&lockerx);
 }
@@ -35,59 +27,50 @@ transcodepool::~transcodepool()
 void transcodepool::Init()
 {
     for(int i=0; i<PIN_NUM; i++){
-        pthread_mutex_init(&ylocker[i], NULL);
-        yQueue_buf[i] = (uint8_t*)av_mallocz(sizeof(uint8_t)*720*576*100);
-        yread_ptr[i] = 0;
-        ywrite_ptr[i] = 0;
-        ybufsize[i] = 720*576*100;
+        yQueue_buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*720*576*30);
+        yread_ptr = 0;
+        ywrite_ptr = 0;
+        ybufsize = 720*576*30;
     }
 
+    fp_temp = fopen("temp.yuv","ab+");
     pthread_mutex_init(&lockerx, NULL);
 
-    for(int i=0; i<PIN_NUM; i++){
-        pthread_mutex_init(&uvlocker[i], NULL);
-        uvQueue_buf[i] = (uint8_t*)av_mallocz(sizeof(uint8_t)*720*576*50);
-        uvread_ptr[i] = 0;
-        uvwrite_ptr[i] = 0;
-        uvbufsize[i] = 720*576*50;
-    }
     TimeStamp = 0;
+//    for(int i=0; i<20; i++)
 }
 
-bool transcodepool::GetFrame( void **YFrameBuf, void **UVFrameBuf, int *DataLength, int *UDataLength, unsigned long * plTimeStamp, int i )
+bool transcodepool::GetFrame( uint8_t *YFrameBuf, int DataLength, unsigned long * plTimeStamp, int i )
 {
-    printf("encoder get frame\n");
+
+    int width = 720;
+    int height = 576;
+    DataLength = width * height * 3/2;
+
+    while(1){
+//        printf(" write = %d, read = %d \n", ywrite_ptr, yread_ptr);
+        if( (ywrite_ptr == yread_ptr + DataLength) || (ywrite_ptr == DataLength&&yread_ptr == ybufsize) ){
+            printf("write = %d , read =%d , char size = %d\n", ywrite_ptr, yread_ptr, sizeof(uint8_t));
+            break;
+        }
+    }
+    printf("out write = %d, out read = %d, pts =%lld \n",ywrite_ptr, yread_ptr, TimeStamp);
 
     pthread_mutex_lock(&lockerx);
 
-    if(ywrite_ptr[i] == yread_ptr[i]){
+    if(ywrite_ptr == yread_ptr || (yread_ptr == ybufsize && ywrite_ptr == 0) )
         return false;
-    }
-    else if(ywrite_ptr[i] < yread_ptr[i]){
-        *DataLength = ywrite_ptr[i] + ybufsize[i] - yread_ptr[i];
-        memcpy(YFrameBuf, yQueue_buf[i] + yread_ptr[i], ybufsize[i] - yread_ptr[i]);
-        memcpy(YFrameBuf + ybufsize[i] - yread_ptr[i], yQueue_buf[i], *DataLength - ybufsize[i] + yread_ptr[i]);
+    else if(yread_ptr == ybufsize){
+        memcpy(YFrameBuf, yQueue_buf, DataLength);
+        yread_ptr = DataLength;
     }
     else {
-        *DataLength = ywrite_ptr[i] - yread_ptr[i];
-        memcpy(YFrameBuf, yQueue_buf[i] + yread_ptr[i], *DataLength);
+        printf("before memcpy read = %d, write = %d, data = %d\n", yread_ptr, ywrite_ptr, DataLength);
+        memcpy(YFrameBuf, yQueue_buf + yread_ptr, DataLength);
+//        memcpy(YFrameBuf, yQueue_buf, DataLength);
+        yread_ptr += DataLength;
     }
-    yread_ptr[i] = ywrite_ptr[i];
-
-    if(uvwrite_ptr[i] == uvread_ptr[i]){
-        return false;
-    }
-    else if(uvwrite_ptr[i] < uvread_ptr[i]){
-        *UDataLength = uvwrite_ptr[i] + uvbufsize[i] - uvread_ptr[i];
-        memcpy(UVFrameBuf, uvQueue_buf[i] + uvread_ptr[i], uvbufsize[i] - uvread_ptr[i]);
-        memcpy(UVFrameBuf + uvbufsize[i] - uvread_ptr[i], uvQueue_buf[i], *UDataLength - uvbufsize[i] + uvread_ptr[i]);
-    }
-    else {
-        *UDataLength = uvwrite_ptr[i] - uvread_ptr[i];
-        memcpy(UVFrameBuf, uvQueue_buf[i] + uvread_ptr[i], *UDataLength);
-    }
-    uvread_ptr[i] = uvwrite_ptr[i];
-
+    fwrite(yQueue_buf + yread_ptr - DataLength, DataLength, 1 ,fp_temp);
     *plTimeStamp = TimeStamp;
 
     pthread_mutex_unlock(&lockerx);
@@ -100,27 +83,42 @@ bool transcodepool::PutFrame( AVFrame *pVideoframe, int i )
     TimeStamp = pVideoframe->pts;
 
     pthread_mutex_lock(&lockerx);
-    printf("thread 1write = %d, read = %d, size = %d, bufsize = %d\n",ywrite_ptr[i], yread_ptr[i], pVideoframe->linesize[0],ybufsize[i]);
-    if(ywrite_ptr[i] + pVideoframe->linesize[0] < ybufsize[i]){
-        memcpy(yQueue_buf[i] + ywrite_ptr[i], pVideoframe->data[0], pVideoframe->linesize[0]);
-        ywrite_ptr[i] += pVideoframe->linesize[0];
+    printf("thread 1 pts = %lld, write = %d, read = %d, bufsize = %d\n", TimeStamp, ywrite_ptr, yread_ptr, ybufsize);
+
+    int j=0;
+    if(ywrite_ptr + pVideoframe->width*pVideoframe->height*3/2 <= ybufsize){
+        for( j=0; j<pVideoframe->height; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width*j, pVideoframe->data[0] + pVideoframe->linesize[0]*j, pVideoframe->width);
+        }
+        ywrite_ptr += pVideoframe->width*j;
+        printf("Y write =%d\n",ywrite_ptr);
+        for( j=0; j<pVideoframe->height/2; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width/2*j, pVideoframe->data[1] + pVideoframe->linesize[1]*j, pVideoframe->width/2);
+        }
+        ywrite_ptr += pVideoframe->width/2*j;
+        for( j=0; j<pVideoframe->height/2; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width/2*j, pVideoframe->data[2] + pVideoframe->linesize[2]*j, pVideoframe->width/2);
+        }
+        ywrite_ptr += pVideoframe->width/2*j;
+        printf("U write =%d\n",ywrite_ptr);
     }
     else{
-        int ylastbufsize = ybufsize[i] - ywrite_ptr[i];
-        memcpy(yQueue_buf[i] + ywrite_ptr[i], pVideoframe->data[0], ylastbufsize);
-        memcpy(yQueue_buf[i], pVideoframe->data[0] + ylastbufsize, pVideoframe->linesize[0] - ylastbufsize);
-        ywrite_ptr[i] = pVideoframe->linesize[0] - ylastbufsize;
+        ywrite_ptr = 0;
+        for( j=0; j<pVideoframe->height; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width*j, pVideoframe->data[0] + pVideoframe->linesize[0]*j, pVideoframe->width);
+        }
+        ywrite_ptr += pVideoframe->width*j;
+        for( j=0; j<pVideoframe->height/2; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width/2*j, pVideoframe->data[1] + pVideoframe->linesize[1]*j, pVideoframe->width/2);
+        }
+        ywrite_ptr += pVideoframe->width/2*j;
+        for( j=0; j<pVideoframe->height/2; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width/2*j, pVideoframe->data[2] + pVideoframe->linesize[2]*j, pVideoframe->width/2);
+        }
+        ywrite_ptr += pVideoframe->width/2*j;
+
     }
-    if(uvwrite_ptr[i] + pVideoframe->linesize[1] < uvbufsize[i]){
-        memcpy(uvQueue_buf[i] + uvwrite_ptr[i], pVideoframe->data[1], pVideoframe->linesize[1]);
-        uvwrite_ptr[i] += pVideoframe->linesize[1];
-    }
-    else{
-        int uvlastbufsize = uvbufsize[i] - uvwrite_ptr[i];
-        memcpy(uvQueue_buf[i] + uvwrite_ptr[i], pVideoframe->data[1], uvlastbufsize);
-        memcpy(uvQueue_buf[i], pVideoframe->data[1] + uvlastbufsize, pVideoframe->linesize[1] - uvlastbufsize);
-        uvwrite_ptr[i] = pVideoframe->linesize[1] - uvlastbufsize;
-    }
+
     pthread_mutex_unlock(&lockerx);
     return true;
 }

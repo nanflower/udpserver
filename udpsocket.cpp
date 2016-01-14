@@ -136,6 +136,8 @@ int udpsocket::ts_demux(int index)
     AVFrame *pAudioframe[AUDIO_NUM];
     AVFrame *pOutAudioframe[AUDIO_NUM];
     AVFrame *pOutAudioframelast[AUDIO_NUM];
+
+
     AVPacket pkt;
     int got_picture;
     int video_num[VIDEO_NUM];
@@ -193,7 +195,7 @@ int udpsocket::ts_demux(int index)
     AVCodecContext *AudioEncodeCtx[AUDIO_NUM];
     AVCodec *AudioEncoder[AUDIO_NUM];
 
-    fp_v = fopen("OUT.h264","wb+"); //输出文件
+    fp_v = fopen("OUT.yuv","ab+"); //输出文件
     fp_a = fopen("audio_out.aac","wb+");
 
     //FFMPEG
@@ -288,11 +290,10 @@ int udpsocket::ts_demux(int index)
             return -1;
         }
     }
-
-    //video encoder init
-//    avformat_alloc_output_context2(&ofmt_ctx, NULL, "h264", NULL);
     unsigned char* outbuffer = NULL;
     outbuffer = (unsigned char*)av_malloc(1024*1000);
+    //video encoder init
+//    avformat_alloc_output_context2(&ofmt_ctx, NULL, "h264", NULL);
 //    AVIOContext *avio_out = NULL;
 //    avio_out = avio_alloc_context(outbuffer, 1024*1000, 0, NULL, NULL, write_buffer,NULL);
 //    if(avio_out == NULL){
@@ -408,7 +409,7 @@ int udpsocket::ts_demux(int index)
     SwrContext *resample_context = NULL;
     long long pts = 0;
     /** Initialize the resampler to be able to convert audio sample formats. */
-//    if (init_resampler(input_codec_context, output_codec_context,
+//    if (init_resampler(pAudioCodecCtx[0], AudioEncodeCtx[0],
 //                       &resample_context))
     for(int i=0; i<1; i++){
         printf("work \n");
@@ -422,12 +423,14 @@ int udpsocket::ts_demux(int index)
                                                           0, NULL);
         swr_init(resample_context);
     }
+    printf("swr over\n");
     af = av_audio_fifo_alloc(AudioEncodeCtx[0]->sample_fmt, AudioEncodeCtx[0]->channels, 1);
     if(af == NULL)
     {
         printf("error af \n");
         return -1;
     }
+
 
     while(1) {
         if (av_read_frame(pFmt, &pkt) >= 0) {
@@ -436,11 +439,20 @@ int udpsocket::ts_demux(int index)
 //                    av_frame_free(&pframe);
                     avcodec_decode_video2(pVideoCodecCtx[i], pVideoframe[i], &got_picture, &pkt);
                     if (got_picture) {
-                        if(videoindex[i] == 0){
-                            printf("pkt .size = %d \n",pkt.size);
-//                            m_tsRecvPool->write_buffer(pkt.data, pkt.size);
+                        if(i == 0){
                             pVideoframe[i]->pts = av_frame_get_best_effort_timestamp(pVideoframe[i]);
                             pVideoframe[i]->pict_type = AV_PICTURE_TYPE_NONE;
+
+//                            printf("pkt .size = %d , frame.size = %d, width = %d, height = %d\n", pkt.size, pVideoframe[i]->linesize[0], pVideoframe[i]->width, pVideoframe[i]->height);
+//                            printf("pVideoframe->Y = %d, pVideoframe->WIDTH = %d\n", pVideoframe[i]->linesize[0], pVideoframe[i]->width);
+//                            for(int j=0; j<pVideoframe[i]->height; j++)
+//                                fwrite( pVideoframe[i]->data[0]  +  pVideoframe[i]->linesize[0]*j, pVideoframe[i]->width, 1, fp_v);
+//                            for(int k=0; k<pVideoframe[i]->height/2; k++)
+//                                fwrite( pVideoframe[i]->data[1] + pVideoframe[i]->linesize[1]*k, pVideoframe[i]->width/2, 1, fp_v);
+//                            for(int l=0; l<pVideoframe[i]->height/2; l++)
+//                                fwrite( pVideoframe[i]->data[2] + pVideoframe[i]->linesize[2]*l, pVideoframe[i]->width/2, 1, fp_v);
+//                            m_tsRecvPool->write_buffer(pkt.data, pkt.size);
+
 //                            printf("videoframesize0 = %d, size1 = %d, size2 = %d, size3 = %d, size4 = %d,format = %d\n",pVideoframe[i]->linesize[0],
 //                                    pVideoframe[i]->linesize[1],pVideoframe[i]->linesize[2],pVideoframe[i]->linesize[3],pVideoframe[i]->linesize[4],pVideoframe[i]->format);
                             pVideoTransPool[i]->PutFrame( pVideoframe[i] ,i);
@@ -450,7 +462,7 @@ int udpsocket::ts_demux(int index)
 //                            enc_pkt.size = 0;
 //                            av_init_packet(&enc_pkt);
 //                            re = avcodec_encode_video2(ofmt_ctx->streams[videoindex[i]]->codec, &enc_pkt,
-//                                    pVideoframe[i], &enc_got_frame);
+//                                    pVideoframe[i], &got_picture);
 //                            printf("enc_got_frame =%d, re = %d \n",enc_got_frame, re);
 //                            printf("Encode 1 Packet\tsize:%d\tpts:%lld\n",enc_pkt.size,enc_pkt.pts);
                             /* prepare packet for muxing */

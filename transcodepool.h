@@ -25,13 +25,13 @@ extern "C"
 
 typedef unsigned char BYTE;
 
-typedef struct tagSample
-{
-    unsigned long   lSampleLength;
-    unsigned long   lTimeStamp;
-    long   lDecodeTimeStamp;
-    BYTE  abySample[1];
-}SAMPLE, *PSAMPLE;
+//typedef struct tagSample
+//{
+//    unsigned long   lSampleLength;
+//    unsigned long   lTimeStamp;
+//    long   lDecodeTimeStamp;
+//    BYTE  abySample[1];
+//}SAMPLE, *PSAMPLE;
 
 class transcodepool
 {
@@ -39,22 +39,16 @@ public:
     transcodepool();
     ~transcodepool();
     void Init();
-    bool GetFrame( void **YFrameBuf, void **UVFrameBuf,  int *DataLength, int *UDataLength, unsigned long * plTimeStamp, int i);
+    bool GetFrame( uint8_t *YFrameBuf,  int DataLength, unsigned long * plTimeStamp, int i);
     bool PutFrame( AVFrame *pVideoframe , int index);
 private:
-//    pthread_mutex_t locker;
-//    pthread_mutex_t ylocker[PIN_NUM];
-//    pthread_mutex_t uvlocker[PIN_NUM];
-//    pthread_cond_t ycond[PIN_NUM];
-//    pthread_cond_t uvcond[PIN_NUM];
+//    pthread_mutex_t lockerx;
+////    pthread_cond_t ycond[PIN_NUM];
 //    uint8_t* yQueue_buf[PIN_NUM];
-//    uint8_t* uvQueue_buf[PIN_NUM];
 //    int ybufsize[PIN_NUM];
-//    int uvbufsize[PIN_NUM];
 //    volatile int ywrite_ptr[PIN_NUM];
 //    volatile int yread_ptr[PIN_NUM];
-//    volatile int uvwrite_ptr[PIN_NUM];
-//    volatile int uvread_ptr[PIN_NUM];
+//    unsigned long long TimeStamp;
 };
 
 #endif // TRANSCODEPOOL_H

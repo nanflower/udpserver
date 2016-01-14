@@ -26,6 +26,9 @@ Copyright(c) 2005-2014 Intel Corporation. All Rights Reserved.
 #include "vaapi_device.h"
 #endif
 
+FILE *fpout_v;
+FILE *fp_yuv;
+
 static void WipeMfxBitstream(mfxBitstream* pBitstream)
 {
     MSDK_CHECK_POINTER(pBitstream);
@@ -71,6 +74,8 @@ mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, outudppool*  pLoopLis
         sts = m_pTasks[i].Init( nBufferSize, pLoopListBuffer, pSample );
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
     }
+    fpout_v = fopen("transcodeV.264","ab+");
+    fp_yuv = fopen("tempV.yuv","ab+");
 
     return MFX_ERR_NONE;
 }
@@ -90,7 +95,7 @@ mfxStatus CEncTaskPool::SynchronizeFirstTask()
         if (MFX_ERR_NONE == sts)
         {
             /*  写输出流 */
-//            sts = m_pTasks[m_nTaskBufferStart].WriteBitstream();
+            sts = m_pTasks[m_nTaskBufferStart].WriteBitstream();
             MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
             sts = m_pTasks[m_nTaskBufferStart].Reset();
@@ -236,7 +241,7 @@ mfxStatus sTask::WriteBitstream()
     m_pSample->lDecodeTimeStamp = mfxBS.DecodeTimeStamp;
 
 //    if(m_pLoopListBuffer->fpVideo)
-//        fwrite(m_pSample->abySample,m_pSample->lSampleLength,1,m_pLoopListBuffer->fpVideo);
+        fwrite(m_pSample->abySample,m_pSample->lSampleLength,1,fpout_v);
 
     //写输出
 //    m_pLoopListBuffer->Write( m_pSample, bVIDEO);
@@ -370,9 +375,9 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sParams *pInParams)
     m_MfxEncParams.mfx.GopPicSize = pInParams->nGopPicSize;
     m_MfxEncParams.mfx.GopRefDist = pInParams->nGopRefDist;
 
-    //transcode add
-    m_MfxEncParams.mfx.GopOptFlag = MFX_GOP_STRICT;
-    m_MfxEncParams.mfx.RateControlMethod = MFX_RATECONTROL_CQP;
+//    //transcode add
+//    m_MfxEncParams.mfx.GopOptFlag = MFX_GOP_STRICT;
+//    m_MfxEncParams.mfx.RateControlMethod = MFX_RATECONTROL_CQP;
 
     m_MfxEncParams.mfx.IdrInterval = 0;
     if ( m_MfxEncParams.mfx.RateControlMethod == MFX_RATECONTROL_CBR )
@@ -429,6 +434,7 @@ mfxStatus CEncodingPipeline::InitMfxEncParams(sParams *pInParams)
 
     // frame info parameters
     m_MfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_NV12;
+//    m_MfxEncParams.mfx.FrameInfo.FourCC = MFX_FOURCC_YV12;
     m_MfxEncParams.mfx.FrameInfo.ChromaFormat = MFX_CHROMAFORMAT_YUV420;
 
     // set frame size and crops
@@ -500,6 +506,7 @@ mfxStatus CEncodingPipeline::InitMfxVppParams(sParams *pInParams)
 
     // input frame info
     m_mfxVppParams.vpp.In.FourCC    = MFX_FOURCC_NV12;
+//    m_mfxVppParams.vpp.In.FourCC    = MFX_FOURCC_YV12;
     m_mfxVppParams.vpp.In.PicStruct = pInParams->nPicStruct;
     ConvertFrameRate(pInParams->dFrameRate, &m_mfxVppParams.vpp.In.FrameRateExtN, &m_mfxVppParams.vpp.In.FrameRateExtD);
 
@@ -553,13 +560,13 @@ bool CEncodingPipeline::GetBuffer( PSAMPLE pSample )
 {
     if( NULL == m_pLoopListBuffer )
         return false;
-//    return m_pLoopListBuffer->Get( pSample );
+    return m_pLoopListBuffer->Get( pSample );
 }
 
 int CEncodingPipeline::GetSampleCount()
 {
-//    if( m_pLoopListBuffer )
-//        return m_pLoopListBuffer->GetSampleCount();
+    if( m_pLoopListBuffer )
+        return m_pLoopListBuffer->GetSampleCount();
     return 0;
 }
 
@@ -573,11 +580,11 @@ bool CEncodingPipeline::GetTimeStamp(unsigned long &lTimeStamp)
     if( NULL == pSample )
         return bRet;
 
-//    if( m_pLoopListBuffer->Get( pSample, false ) )
-//    {
-//        lTimeStamp = pSample->lTimeStamp;
-//        bRet = true;
-//    }
+    if( m_pLoopListBuffer->Get( pSample, false ) )
+    {
+        lTimeStamp = pSample->lTimeStamp;
+        bRet = true;
+    }
     delete pSample;
     pSample = NULL;
     return bRet;
@@ -600,8 +607,8 @@ int CEncodingPipeline::GetBitRate()
 
 void CEncodingPipeline::ClearVideoBuffer()
 {
-//    if( m_pLoopListBuffer )
-//        m_pLoopListBuffer->ClearBuffer();
+    if( m_pLoopListBuffer )
+        m_pLoopListBuffer->ClearBuffer();
 }
 
 void CEncodingPipeline::Quit()
@@ -877,13 +884,13 @@ mfxStatus CEncodingPipeline::InitSaveBuffer( int nW, int nH )
     {
         long lPitch  = ((nW &~ 15) * 12+ 7) / 8;
         long lHeight = (nH + 31) &~ 31;
-//        m_pLoopListBuffer = g_pLoopListBuffer[m_deviceid];
+        m_pLoopListBuffer = g_pLoopListBuffer[m_deviceid];
         //m_pLoopListBuffer  = new CLoopListBuffer(lPitch*lHeight*2);
-        if(m_deviceid == 0)
-        {
-            FILE *fpVideo = fopen("cctv0.264", "wa+");
+//        if(m_deviceid == 0)
+//        {
+//            FILE *fpVideo = fopen("cctv0.264", "wa+");
 //            m_pLoopListBuffer->fpVideo = fpVideo;
-        }
+//        }
         MSDK_CHECK_POINTER(m_pLoopListBuffer, MFX_ERR_MEMORY_ALLOC);
     }
     if( NULL == m_pSample )
@@ -910,7 +917,7 @@ mfxStatus CEncodingPipeline::Init( sParams *pParams )
     m_MVCflags = pParams->MVC_flags;
 
     // prepare save buffer
-//    sts = InitSaveBuffer( pParams->nDstWidth, pParams->nDstHeight );
+    sts = InitSaveBuffer( pParams->nDstWidth, pParams->nDstHeight );
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
     // we set version to 1.0 and later we will query actual version of the library which will got leaded
@@ -1113,7 +1120,7 @@ mfxStatus CEncodingPipeline::LoadFrameFromBuffer(mfxFrameSurface1* pSurface,  un
     mfxFrameInfo& pInfo = pSurface->Info;
     mfxFrameData& pData = pSurface->Data;
     unsigned char * YFrameBuf;
-    unsigned char * UVFrameBuf;
+    YFrameBuf = (uint8_t*)av_mallocz(sizeof(uint8_t)*720*576*3/2);
 
     // this reader supports only NV12 mfx surfaces for code transparency,
     // other formats may be added if application requires such functionality
@@ -1134,24 +1141,84 @@ mfxStatus CEncodingPipeline::LoadFrameFromBuffer(mfxFrameSurface1* pSurface,  un
     pitch = pData.Pitch;
     ptr = pData.Y + pInfo.CropX + pInfo.CropY * pData.Pitch;
 
-    // read luminance plane
-//    if( !m_pVd->GetFrame( (void **)&pV4l2Buffer, &lBufferLen , plTimeStamp) )
-//    {
-//        return MFX_TASK_BUSY;
-//    }
-    int *YLength = 0;
-    int *UVLength = 0;
-    if( !m_pVd->GetFrame( (void **)&YFrameBuf, (void **)&UVFrameBuf, YLength, UVLength, plTimeStamp, 0 ))
+    int YLength = 0;
+    printf("pitch = %d ,X = %d, Y = %d\n", pData.Pitch, pInfo.CropX, pInfo.CropY);
+
+    if( !m_pVd->GetFrame( YFrameBuf, YLength, plTimeStamp, 0 ))
     {
         return MFX_TASK_BUSY;
     }
+    fwrite( YFrameBuf, h*w*3/2, 1, fp_yuv);
 
-    ptr = pData.Y + pInfo.CropX + pInfo.CropY * pData.Pitch;
-    ptr = pData.Y;
-    memcpy( ptr, YFrameBuf, h*w );
-    ptr  = pData.UV + pInfo.CropX + pInfo.CropY/2 * pitch;
-    ptr = pData.UV;
-    memcpy( ptr, UVFrameBuf, h*w/2 );
+    mfxU16 i=0;
+    mfxU32 j=0;
+    for(i = 0; i < h; i++)
+    {
+        memcpy( ptr + i*pitch, YFrameBuf+w*i, w );
+    }
+
+//    pitch /= 2;
+
+//    ptr  = pData.U + (pInfo.CropX / 2) + (pInfo.CropY / 2) * pitch;
+//    mfxU8 *ptr2 = pData.V + (pInfo.CropX / 2) + (pInfo.CropY / 2) * pitch;
+
+//    for(i = 0; i < h/2; i++)
+//    {
+//            memcpy(ptr + i*pitch , YFrameBuf + w*h + w/2*i , w/2);
+//            memcpy(ptr2 + i*pitch, YFrameBuf + w*h*5/4 + w/2*i, w/2);
+//    }
+
+    mfxU8 buf[1024];
+    ptr = pData.UV + pInfo.CropX + (pInfo.CropY / 2) * pitch;
+    for( i=0; i<h/2; i++)
+    {
+        memcpy(buf, YFrameBuf + w*h + w/2*i, w/2);
+        for (j = 0; j < w/2; j++)
+        {
+            ptr[i * pitch + j * 2] = buf[j];
+        }
+    }
+    for( i=0; i<h/2; i++)
+    {
+        memcpy(buf, YFrameBuf + w*h*5/4 + w/2*i, w/2);
+        for (j = 0; j < w/2; j++)
+        {
+            ptr[i * pitch + j * 2 + 1] = buf[j];
+        }
+    }
+
+
+//    for(i =0 ; i<h/2; i++)
+//    {
+//        memcpy(ptr + i*pitch, YFrameBuf + w*h +w*i, w);
+//    }
+
+//    for(i = 0; i < h/2; i++)
+//    {
+//        for(j=0; j<w/2; j++){
+//            memcpy(ptr + i*pitch + j*2, YFrameBuf + w*h + j*i + j, 1);
+//        }
+//    }
+//    for(i = 0; i < h/2; i++)
+//    {
+//        for(j=0; j<w/2; j++){
+//            memcpy(ptr+ i*pitch + j*2 + 1 , YFrameBuf + w*h*5/4 + j*i + j, 1);
+//        }
+//    }
+
+    av_free(YFrameBuf);
+
+//    for(i = 0; i < h/2; i++)
+//    {
+////        nBytesRead = (mfxU32)fread(ptr2 + i * pitch, 1, w, m_fSource);
+//        memcpy( ptr2 + i*pitch, YFrameBuf + w*h + w*h/4 + w/2*i, w/2);
+//    }
+//    ptr = pData.Y + pInfo.CropX + pInfo.CropY * pData.Pitch;
+//    memcpy( ptr, YFrameBuf, h*w );
+//    ptr  = pData.UV + pInfo.CropX + pInfo.CropY/2 * pitch;
+//    memcpy( ptr, YFrameBuf + h*w, h*w/2 );
+//    memcpy( pData.Y, YFrameBuf, h*w);
+//    memcpy( pData.UV, YFrameBuf, h*w/2);
 
     return MFX_ERR_NONE;
 }
@@ -1355,7 +1422,9 @@ mfxStatus CEncodingPipeline::Run()
             }
 
             pSurf->Info.FrameId.ViewId = currViewNum;
+            printf(" get fram form buffer \n");
             sts = LoadFrameFromBuffer( pSurf, &lTimeStamp );
+            printf("timestamp = %ld, length = %d \n",lTimeStamp, pSurf->Info.BufferSize);
             if( sts == MFX_TASK_BUSY )
                 continue;
             MSDK_BREAK_ON_ERROR(sts);

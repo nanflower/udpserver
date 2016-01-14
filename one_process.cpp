@@ -3,6 +3,12 @@
 one_process::one_process()
 {
     m_index = 0;
+    m_bStopEncoder = false;
+    m_pVideoEncoder = NULL;
+    printf(" processxx \n");
+    InitEncoderPar();
+    pthread_mutex_init( &m_Mutex, NULL );
+    pthread_cond_init( &m_Cond, NULL );
 }
 
 one_process::~one_process()
@@ -15,6 +21,8 @@ void one_process::Init(int index)
     m_index = index;
 
     pthread_t h264_encoder_thread;
+    memset( &h264_encoder_thread, 0, sizeof( h264_encoder_thread ) );
+
     if( 0 != pthread_create( &h264_encoder_thread, NULL, video_encoder, this ))
         printf("%s:%d  Error: Create video encoder thread failed !!!\n", __FILE__, __LINE__ );
 
