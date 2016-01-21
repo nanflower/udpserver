@@ -48,7 +48,12 @@ tspoolqueue::tspoolqueue()
 
 tspoolqueue::~tspoolqueue()
 {
-
+    pthread_mutex_destroy(&locker);
+//    pthread_cond_destroy(&cond);
+    av_free(q_buf);
+    pthread_mutex_destroy(&locker1);
+    av_free(q_buf1);
+    pthread_mutex_destroy(&decodelocker1);
 }
 
 

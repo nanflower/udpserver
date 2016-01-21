@@ -7,7 +7,7 @@ uint8_t* yQueue_buf;
 int ybufsize;
 volatile int ywrite_ptr;
 volatile int yread_ptr;
-unsigned long long TimeStamp;
+unsigned long TimeStamp;
 
 FILE *fp_temp;
 
@@ -48,9 +48,8 @@ bool transcodepool::GetFrame( uint8_t *YFrameBuf, int DataLength, unsigned long 
     DataLength = width * height * 3/2;
 
     while(1){
-//        printf(" write = %d, read = %d \n", ywrite_ptr, yread_ptr);
         if( (ywrite_ptr == yread_ptr + DataLength) || (ywrite_ptr == DataLength&&yread_ptr == ybufsize) ){
-            printf("write = %d , read =%d , char size = %d\n", ywrite_ptr, yread_ptr, sizeof(uint8_t));
+//            printf("write = %d , read =%d , char size = %d\n", ywrite_ptr, yread_ptr, sizeof(uint8_t));
             break;
         }
     }
@@ -65,12 +64,11 @@ bool transcodepool::GetFrame( uint8_t *YFrameBuf, int DataLength, unsigned long 
         yread_ptr = DataLength;
     }
     else {
-        printf("before memcpy read = %d, write = %d, data = %d\n", yread_ptr, ywrite_ptr, DataLength);
+//        printf("before memcpy read = %d, write = %d, data = %d\n", yread_ptr, ywrite_ptr, DataLength);
         memcpy(YFrameBuf, yQueue_buf + yread_ptr, DataLength);
-//        memcpy(YFrameBuf, yQueue_buf, DataLength);
         yread_ptr += DataLength;
     }
-    fwrite(yQueue_buf + yread_ptr - DataLength, DataLength, 1 ,fp_temp);
+//    fwrite(yQueue_buf + yread_ptr - DataLength, DataLength, 1 ,fp_temp);
     *plTimeStamp = TimeStamp;
 
     pthread_mutex_unlock(&lockerx);
@@ -83,7 +81,7 @@ bool transcodepool::PutFrame( AVFrame *pVideoframe, int i )
     TimeStamp = pVideoframe->pts;
 
     pthread_mutex_lock(&lockerx);
-    printf("thread 1 pts = %lld, write = %d, read = %d, bufsize = %d\n", TimeStamp, ywrite_ptr, yread_ptr, ybufsize);
+//    printf("thread 1 pts = %lld, write = %d, read = %d, bufsize = %d\n", TimeStamp, ywrite_ptr, yread_ptr, ybufsize);
 
     int j=0;
     if(ywrite_ptr + pVideoframe->width*pVideoframe->height*3/2 <= ybufsize){
@@ -91,7 +89,7 @@ bool transcodepool::PutFrame( AVFrame *pVideoframe, int i )
             memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width*j, pVideoframe->data[0] + pVideoframe->linesize[0]*j, pVideoframe->width);
         }
         ywrite_ptr += pVideoframe->width*j;
-        printf("Y write =%d\n",ywrite_ptr);
+//        printf("Y write =%d\n",ywrite_ptr);
         for( j=0; j<pVideoframe->height/2; j++){
             memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width/2*j, pVideoframe->data[1] + pVideoframe->linesize[1]*j, pVideoframe->width/2);
         }
@@ -100,7 +98,7 @@ bool transcodepool::PutFrame( AVFrame *pVideoframe, int i )
             memcpy(yQueue_buf + ywrite_ptr + pVideoframe->width/2*j, pVideoframe->data[2] + pVideoframe->linesize[2]*j, pVideoframe->width/2);
         }
         ywrite_ptr += pVideoframe->width/2*j;
-        printf("U write =%d\n",ywrite_ptr);
+//        printf("U write =%d\n",ywrite_ptr);
     }
     else{
         ywrite_ptr = 0;

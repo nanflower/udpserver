@@ -5,28 +5,103 @@ one_process::one_process()
     m_index = 0;
     m_bStopEncoder = false;
     m_pVideoEncoder = NULL;
-    printf(" processxx \n");
     InitEncoderPar();
     pthread_mutex_init( &m_Mutex, NULL );
     pthread_cond_init( &m_Cond, NULL );
+
+    m_bStopDecoder = false;
+    m_pVideoDecoder = NULL;
+//    InitDecoderPar();
+    pthread_mutex_init( &m_DeMutex, NULL );
+    pthread_cond_init( &m_DeCond, NULL );
 }
 
 one_process::~one_process()
 {
     DestroyVideoEncoder();
+    DestroyVideoDecoder();
 }
 
 void one_process::Init(int index)
 {
     m_index = index;
 
-    pthread_t h264_encoder_thread;
-    memset( &h264_encoder_thread, 0, sizeof( h264_encoder_thread ) );
+    pthread_t mpeg2_decode_thread;
+    memset( &mpeg2_decode_thread, 0, sizeof( mpeg2_decode_thread ) );
 
-    if( 0 != pthread_create( &h264_encoder_thread, NULL, video_encoder, this ))
+    if( 0 != pthread_create( &mpeg2_decode_thread, NULL, video_decoder, this ))
         printf("%s:%d  Error: Create video encoder thread failed !!!\n", __FILE__, __LINE__ );
 
-    pthread_detach(h264_encoder_thread);
+    pthread_detach(mpeg2_decode_thread);
+
+//    pthread_t h264_encoder_thread;
+//    memset( &h264_encoder_thread, 0, sizeof( h264_encoder_thread ) );
+
+//    if( 0 != pthread_create( &h264_encoder_thread, NULL, video_encoder, this ))
+//        printf("%s:%d  Error: Create video encoder thread failed !!!\n", __FILE__, __LINE__ );
+
+//    pthread_detach(h264_encoder_thread);
+
+//    pthread_t udp_send_thread;
+//    memset( &udp_send_thread, 0, sizeof( udp_send_thread ) );
+
+//    if( 0 != pthread_create( &udp_send_thread, NULL, udp_send, this ))
+//        printf("%s:%d  Error: Create video encoder thread failed !!!\n", __FILE__, __LINE__ );
+
+//    pthread_detach(udp_send_thread);
+}
+
+void* one_process::video_decoder(void *pArg){
+    one_process* pTemp = (one_process*)pArg;
+    if( pTemp )
+        pTemp->run_video_decoder();
+    return (void*)NULL;
+}
+
+void one_process::run_video_decoder(){
+    if( m_bStopDecoder )
+        return;
+    printf("video decoder work\n");
+    bool bInitVideoDecoder = true;
+
+    sInputParams Params;
+    mfxStatus sts = MFX_ERR_NONE;
+    // Init video encoder
+    if( bInitVideoDecoder )
+    {
+        sts = InitVideoDecoder( &Params );
+        if( sts != MFX_ERR_NONE  )
+            return;
+    }
+    printf("Init over \n");
+    while( 1 )
+    {
+
+        sts = m_pVideoDecoder->RunDecoding();
+        if ( MFX_ERR_DEVICE_LOST == sts || MFX_ERR_DEVICE_FAILED == sts )
+        {
+            bInitVideoDecoder = false;
+            sts = m_pVideoDecoder->ResetDecoder(&Params);
+            continue;
+        }
+        else if( ( int )sts == 10000 )
+        {
+            // Pause video encoder
+            PauseVideoDecoderThread();
+
+            // Exit application
+            if( m_bExitDeApplication )
+                return;
+
+            bInitVideoDecoder = true;
+            continue;
+        }
+        else
+            break;
+    }
+
+    if( m_pVideoDecoder )
+        m_pVideoDecoder->Close();
 }
 
 void* one_process::video_encoder(void *pArg){
@@ -78,6 +153,148 @@ void one_process::run_video_encoder(){
 
     if( m_pVideoEncoder )
         m_pVideoEncoder->Close();
+}
+
+void* one_process::udp_send(void *pArg){
+    one_process* pTemp = (one_process*)pArg;
+    if( pTemp )
+        pTemp->run_udp_send();
+    return (void*)NULL;
+}
+
+void one_process::run_udp_send(){
+    /* 创建UDP套接口 */
+    struct sockaddr_in server_addr;
+    bzero(&server_addr, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    //server_addr.sin_addr.s_addr = inet_addr("1.8.84.12");
+    server_addr.sin_port = htons(10791);
+
+    /* 创建socket */
+    int server_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if(server_socket_fd == -1)
+    {
+         perror("Create Socket Failed:");
+         exit(1);
+    }
+
+    memset(server_addr.sin_zero,0,8);
+     int re_flag=1;
+     int re_len=sizeof(int);
+     setsockopt(server_socket_fd,SOL_SOCKET,SO_REUSEADDR,&re_flag,re_len);
+
+    /* 绑定套接口 */
+    if(-1 == (bind(server_socket_fd,(struct sockaddr*)&server_addr,sizeof(server_addr))))
+    {
+         perror("Server Bind Failed:");
+         exit(1);
+    }
+    /* 数据传输 */
+
+    while(1)
+    {
+         /* 定义一个地址，用于捕获客户端地址 */
+         struct sockaddr_in client_addr;
+         socklen_t client_addr_length = sizeof(client_addr);
+         /* 接收数据 */
+         uint8_t *buffer[BUFFER_SIZE];
+         bzero(buffer, BUFFER_SIZE);
+//         struct timeval tv;
+//         fd_set readfds;
+//         tv.tv_sec = 3;
+//         tv.tv_usec = 10;
+//         FD_ZERO(&readfds);
+//         FD_SET(server_socket_fd, &readfds);
+//         select(server_socket_fd+1,&readfds,NULL, NULL, &tv);
+
+//         if (FD_ISSET(server_socket_fd,&readfds))
+//         {
+        int len = sendto(server_socket_fd, buffer, BUFFER_SIZE,0,(struct sockaddr*)&client_addr, sizeof(client_addr_length));
+        if (len == -1)
+        {
+            printf("send data error!\n");
+        }
+//         }
+//         else
+//         {
+//             printf("error is %d\n",errno);
+//             printf("timeout!there is no data arrived!\n");
+//         }
+    }
+}
+
+mfxStatus one_process::InitVideoDecoder( sInputParams *pParams )
+{
+    MSDK_CHECK_POINTER( pParams, MFX_ERR_NULL_PTR );
+    if( NULL ==  m_pVideoDecoder )
+    {
+        m_pVideoDecoder = new CDecodingPipeline();
+        m_pVideoDecoder->m_deviceid = m_index;
+        MSDK_CHECK_POINTER( m_pVideoDecoder, MFX_ERR_MEMORY_ALLOC );
+    }
+
+    MSDK_ZERO_MEMORY( *pParams );
+    InitVideoDecoderParam( pParams );
+    printf("init decoder\n");
+    return m_pVideoDecoder->Init( pParams );
+}
+
+
+void one_process::InitVideoDecoderParam( sInputParams *pParams )
+{
+    if( NULL == pParams )
+        return;
+//    g_decodeDevice[0]->Init(0);
+    pParams->decode = g_decodeDevice[0];
+    pParams->decodeID = m_index;
+    pParams->videoType = MFX_CODEC_MPEG2;
+//    pParams->mode = ;
+//    pParams->memType = ;
+    pParams->bUseHWLib = true;
+    pParams->bIsMVC = false;
+    pParams->bLowLat = false;
+    pParams->bCalLat = false;
+//    pParams->nMaxFPS = ;
+//    pParams->nWallCell = ;
+//    pParams->nWallW = ;
+//    pParams->nWallH = ;
+//    pParams->nWallMonitor = ;
+//    pParams->bWallNoTitle = ;
+//    pParams->nWallTimeout = ;
+//    pParams->numViews = ;
+//    pParams->nRotation = ;
+    if(pParams->nAsyncDepth == 0)
+        pParams->nAsyncDepth = 4;
+//    pParams->gpuCopy = ;
+//    pParams->nThreadsNum = ;
+//    pParams->SchedulingType = ;
+//    pParams->Priority = ;
+    pParams->width = 720;
+    pParams->height = 576;
+    pParams->fourcc = MFX_FOURCC_NV12;
+//    pParams->nFrames = ;
+
+}
+
+void one_process::PauseVideoDecoderThread()
+{
+    pthread_mutex_lock( &m_DeMutex );
+    while ( m_bStopDecoder )
+    {
+        DestroyVideoDecoder();
+        pthread_cond_wait( &m_DeCond, &m_DeMutex );
+    }
+    pthread_mutex_unlock( &m_DeMutex );
+}
+
+void one_process::DestroyVideoDecoder()
+{
+    if( m_pVideoDecoder )
+    {
+        delete m_pVideoDecoder;
+        m_pVideoDecoder = NULL;
+    }
 }
 
 mfxStatus one_process::InitVideoEncoder( sParams *pParams )
@@ -148,33 +365,9 @@ void one_process::InitVideoEncoderParam( sParams *pParams )
 void one_process::GetQuality( unsigned short &nDstWidth, unsigned short &nDstHeight, unsigned short &nICQQuality )
 {
 
- //   case EXCELLENT:
-//        nDstWidth = 1280;
-//        nDstHeight = 720;
-//        nICQQuality = 35;
-   //     break;
-//    case GOOD:
-//        nDstWidth = 1120;
-//        nDstHeight = 630;
-//        nICQQuality = 36;
-//        break;
-//    case FAIR:
         nDstWidth = 720;
         nDstHeight = 576;
         nICQQuality = 36;
-//        break;
-//    case POOR:
-//        nDstWidth = 800;
-//        nDstHeight = 468;
-//        nICQQuality = 37;
-//        break;
-//    case MOBILE:
-//        nDstWidth = 480;
-//        nDstHeight = 270;
-//        nICQQuality = 37;
-//        break;
-//    default:
-//        break;
 
 }
 

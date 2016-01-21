@@ -14,7 +14,7 @@ MainWindow::MainWindow(QWidget *parent) :
     {
         if(i < 16)
         {
-            g_pLoopListBuffer[i] = new outudppool(5000*188);
+            g_pLoopListBuffer[i] = new outudppool(5*188);
             g_pLoopListBuffer[i]->m_LoopIndex = i;//2*i+1;
         }
     }

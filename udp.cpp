@@ -14,7 +14,6 @@ udp::~udp()
 int udp::Init()
 {
 
-
         for(int i=0;i<1;i++){
             m_ChannelGet[i] = new udpsocket();
             m_ChannelGet[i]->thread_init(i);  //udp接收线程

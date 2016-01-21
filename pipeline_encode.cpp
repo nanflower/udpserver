@@ -1142,13 +1142,12 @@ mfxStatus CEncodingPipeline::LoadFrameFromBuffer(mfxFrameSurface1* pSurface,  un
     ptr = pData.Y + pInfo.CropX + pInfo.CropY * pData.Pitch;
 
     int YLength = 0;
-    printf("pitch = %d ,X = %d, Y = %d\n", pData.Pitch, pInfo.CropX, pInfo.CropY);
 
     if( !m_pVd->GetFrame( YFrameBuf, YLength, plTimeStamp, 0 ))
     {
         return MFX_TASK_BUSY;
     }
-    fwrite( YFrameBuf, h*w*3/2, 1, fp_yuv);
+//    fwrite( YFrameBuf, h*w*3/2, 1, fp_yuv);
 
     mfxU16 i=0;
     mfxU32 j=0;
@@ -1156,17 +1155,6 @@ mfxStatus CEncodingPipeline::LoadFrameFromBuffer(mfxFrameSurface1* pSurface,  un
     {
         memcpy( ptr + i*pitch, YFrameBuf+w*i, w );
     }
-
-//    pitch /= 2;
-
-//    ptr  = pData.U + (pInfo.CropX / 2) + (pInfo.CropY / 2) * pitch;
-//    mfxU8 *ptr2 = pData.V + (pInfo.CropX / 2) + (pInfo.CropY / 2) * pitch;
-
-//    for(i = 0; i < h/2; i++)
-//    {
-//            memcpy(ptr + i*pitch , YFrameBuf + w*h + w/2*i , w/2);
-//            memcpy(ptr2 + i*pitch, YFrameBuf + w*h*5/4 + w/2*i, w/2);
-//    }
 
     mfxU8 buf[1024];
     ptr = pData.UV + pInfo.CropX + (pInfo.CropY / 2) * pitch;
@@ -1187,38 +1175,7 @@ mfxStatus CEncodingPipeline::LoadFrameFromBuffer(mfxFrameSurface1* pSurface,  un
         }
     }
 
-
-//    for(i =0 ; i<h/2; i++)
-//    {
-//        memcpy(ptr + i*pitch, YFrameBuf + w*h +w*i, w);
-//    }
-
-//    for(i = 0; i < h/2; i++)
-//    {
-//        for(j=0; j<w/2; j++){
-//            memcpy(ptr + i*pitch + j*2, YFrameBuf + w*h + j*i + j, 1);
-//        }
-//    }
-//    for(i = 0; i < h/2; i++)
-//    {
-//        for(j=0; j<w/2; j++){
-//            memcpy(ptr+ i*pitch + j*2 + 1 , YFrameBuf + w*h*5/4 + j*i + j, 1);
-//        }
-//    }
-
     av_free(YFrameBuf);
-
-//    for(i = 0; i < h/2; i++)
-//    {
-////        nBytesRead = (mfxU32)fread(ptr2 + i * pitch, 1, w, m_fSource);
-//        memcpy( ptr2 + i*pitch, YFrameBuf + w*h + w*h/4 + w/2*i, w/2);
-//    }
-//    ptr = pData.Y + pInfo.CropX + pInfo.CropY * pData.Pitch;
-//    memcpy( ptr, YFrameBuf, h*w );
-//    ptr  = pData.UV + pInfo.CropX + pInfo.CropY/2 * pitch;
-//    memcpy( ptr, YFrameBuf + h*w, h*w/2 );
-//    memcpy( pData.Y, YFrameBuf, h*w);
-//    memcpy( pData.UV, YFrameBuf, h*w/2);
 
     return MFX_ERR_NONE;
 }
@@ -1422,7 +1379,7 @@ mfxStatus CEncodingPipeline::Run()
             }
 
             pSurf->Info.FrameId.ViewId = currViewNum;
-            printf(" get fram form buffer \n");
+//            printf(" get frame form buffer \n");
             sts = LoadFrameFromBuffer( pSurf, &lTimeStamp );
             printf("timestamp = %ld, length = %d \n",lTimeStamp, pSurf->Info.BufferSize);
             if( sts == MFX_TASK_BUSY )

@@ -6,6 +6,8 @@
 #include <math.h>
 #include <sstream>
 
+#include "time_defs.h"
+
 #include "sysmem_allocator.h"
 
 
@@ -54,6 +56,118 @@ enum MsdkTraceLevel {
     MSDK_TRACE_LEVEL_INFO = 3,
     MSDK_TRACE_LEVEL_DEBUG = 4,
 };
+
+enum msdkAPIFeature {
+    MSDK_FEATURE_NONE,
+    MSDK_FEATURE_MVC,
+    MSDK_FEATURE_JPEG_DECODE,
+    MSDK_FEATURE_LOW_LATENCY,
+    MSDK_FEATURE_MVC_VIEWOUTPUT,
+    MSDK_FEATURE_JPEG_ENCODE,
+    MSDK_FEATURE_LOOK_AHEAD,
+    MSDK_FEATURE_PLUGIN_API
+};
+
+class CAutoTimer
+{
+public:
+    CAutoTimer(msdk_tick& _elapsed):
+        elapsed(_elapsed),
+        start(0)
+    {
+        elapsed = _elapsed;
+        start = msdk_time_get_tick();
+    }
+    ~CAutoTimer()
+    {
+        elapsed += msdk_time_get_tick() - start;
+    }
+    msdk_tick Sync()
+    {
+        msdk_tick cur = msdk_time_get_tick();
+        elapsed += cur - start;
+        start = cur;
+        return elapsed;
+    }
+protected:
+    msdk_tick& elapsed;
+    msdk_tick start;
+private:
+    CAutoTimer(const CAutoTimer&);
+    void operator=(const CAutoTimer&);
+};
+
+class CTimer
+{
+public:
+    CTimer():
+        start(0)
+    {
+    }
+    static msdk_tick GetFrequency()
+    {
+        if (!frequency) frequency = msdk_time_get_frequency();
+        return frequency;
+    }
+    static mfxF64 ConvertToSeconds(msdk_tick elapsed)
+    {
+        return MSDK_GET_TIME(elapsed, 0, GetFrequency());
+    }
+
+    inline void Start()
+    {
+        start = msdk_time_get_tick();
+    }
+    inline msdk_tick GetDelta()
+    {
+        return msdk_time_get_tick() - start;
+    }
+    inline mfxF64 GetTime()
+    {
+        return MSDK_GET_TIME(msdk_time_get_tick(), start, GetFrequency());
+    }
+
+protected:
+    static msdk_tick frequency;
+    msdk_tick start;
+private:
+    CTimer(const CTimer&);
+    void operator=(const CTimer&);
+};
+
+// function for getting a pointer to a specific external buffer from the array
+mfxExtBuffer* GetExtBuffer(mfxExtBuffer** ebuffers, mfxU32 nbuffers, mfxU32 BufferId);
+
+//declare used extended buffers
+template<class T>
+struct mfx_ext_buffer_id{
+    enum {id = 0};
+};
+template<>struct mfx_ext_buffer_id<mfxExtCodingOption>{
+    enum {id = MFX_EXTBUFF_CODING_OPTION};
+};
+template<>struct mfx_ext_buffer_id<mfxExtCodingOption2>{
+    enum {id = MFX_EXTBUFF_CODING_OPTION2};
+};
+template<>struct mfx_ext_buffer_id<mfxExtAvcTemporalLayers>{
+    enum {id = MFX_EXTBUFF_AVC_TEMPORAL_LAYERS};
+};
+template<>struct mfx_ext_buffer_id<mfxExtAVCRefListCtrl>{
+    enum {id = MFX_EXTBUFF_AVC_REFLIST_CTRL};
+};
+template<>struct mfx_ext_buffer_id<mfxExtThreadsParam>{
+    enum {id = MFX_EXTBUFF_THREADS_PARAM};
+};
+
+//helper function to initialize mfx ext buffer structure
+template <class T>
+void init_ext_buffer(T & ext_buffer)
+{
+    memset(&ext_buffer, 0, sizeof(ext_buffer));
+    reinterpret_cast<mfxExtBuffer*>(&ext_buffer)->BufferId = mfx_ext_buffer_id<T>::id;
+    reinterpret_cast<mfxExtBuffer*>(&ext_buffer)->BufferSz = sizeof(ext_buffer);
+}
+
 msdk_string NoFullPath(const msdk_string &);
 int  msdk_trace_get_level();
 void msdk_trace_set_level(int);

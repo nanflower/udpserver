@@ -37,7 +37,15 @@ SOURCES += main.cpp\
     vaapi_utils_drm.cpp \
     utils.cpp \
     sysmem_allocator.cpp \
-    outudppool.cpp
+    outudppool.cpp \
+    pipeline_decode.cpp \
+    decodepool.cpp \
+    plugin_utils.cpp \
+    mfx_buffering.cpp \
+    time_def.cpp \
+    thread_defs.cpp \
+    atomic_defs.cpp \
+    thread_defs2.cpp
 
 HEADERS  += mainwindow.h \
     udp.h \
@@ -57,6 +65,21 @@ HEADERS  += mainwindow.h \
     global.h \
     values.h \
     outudppool.h \
-    sparams.h
+    sparams.h \
+    pipeline_decode.h \
+    decodepool.h \
+    sample_defs.h \
+    atomic_defs.h \
+    file_defs.h \
+    so_defs.h \
+    strings_defs.h \
+    thread_defs.h \
+    time_defs.h \
+    sample_params.h \
+    plugin_utils.h \
+    sample_types.h \
+    avc_structures.h \
+    plugin_loader.h \
+    mfx_buffering.h
 
 FORMS    += mainwindow.ui

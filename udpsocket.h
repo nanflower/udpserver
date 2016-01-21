@@ -54,6 +54,7 @@ extern "C"
 //#include "tsrecvpool.h"
 #include "tspoolqueue.h"
 #include "transcodepool.h"
+#include "decodepool.h"
 
 #define VIDEO_NUM 7
 #define AUDIO_NUM 7
