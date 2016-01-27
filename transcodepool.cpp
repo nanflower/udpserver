@@ -33,7 +33,7 @@ void transcodepool::Init()
         ybufsize = 720*576*30;
     }
 
-    fp_temp = fopen("temp.yuv","ab+");
+    fp_temp = fopen("temp.yuv","wb+");
     pthread_mutex_init(&lockerx, NULL);
 
     TimeStamp = 0;
@@ -117,6 +117,66 @@ bool transcodepool::PutFrame( AVFrame *pVideoframe, int i )
 
     }
 
+    pthread_mutex_unlock(&lockerx);
+    return true;
+}
+
+bool transcodepool::PutFrame( mfxFrameSurface1 *pSurface)
+{
+    pthread_mutex_lock(&lockerx);
+
+    mfxFrameInfo  &pInfo = pSurface->Info;
+    mfxFrameData &pData = pSurface->Data;
+
+    int j=0;
+    if(ywrite_ptr + pInfo.CropW*pInfo.CropH*3/2 <= ybufsize){
+        for( j=0; j<pInfo.CropH; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pInfo.CropW*j, pData.Y + (pInfo.CropY * pData.Pitch + pInfo.CropX) + j * pData.Pitch,
+                   pInfo.CropW);
+        }
+        ywrite_ptr += pInfo.CropW*j;
+
+        for( j=0; j<pInfo.CropH/2; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pInfo.CropW*j, pData.UV + (pInfo.CropY * pData.Pitch / 2 + pInfo.CropX) + j * pData.Pitch,
+                   pInfo.CropW);
+        }
+        ywrite_ptr += pInfo.CropW*j;
+    }
+    else{
+        ywrite_ptr = 0;
+        for( j=0; j<pInfo.CropH; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pInfo.CropW*j, pData.Y + (pInfo.CropY * pData.Pitch + pInfo.CropX) + j * pData.Pitch,
+                   pInfo.CropW);
+        }
+        ywrite_ptr += pInfo.CropW*j;
+
+        for( j=0; j<pInfo.CropH/2; j++){
+            memcpy(yQueue_buf + ywrite_ptr + pInfo.CropW*j, pData.UV + (pInfo.CropY * pData.Pitch / 2 + pInfo.CropX) + j * pData.Pitch,
+                   pInfo.CropW);
+        }
+        ywrite_ptr += pInfo.CropW*j;
+
+    }
+
+//    printf("put frame pitch = %d, x = %d, y = %d \n", pData.Pitch, pInfo.CropX, pInfo.CropY);
+//    for(int i = 0; i < (mfxU32) pInfo.CropH; i++)
+//        fwrite( pData.Y + (pInfo.CropY * pData.Pitch + pInfo.CropX) + i * pData.Pitch, 1 , pInfo.CropW, fp_temp);
+//    int h = pInfo.CropH/2;
+//    int w = pInfo.CropW;
+//    for(int i=0; i < h; i++)
+//    {
+//        for(int j=0; j < w; j += 2)
+//        {
+//            fwrite(pData.UV + (pInfo.CropY * pData.Pitch / 2 + pInfo.CropX) + i * pData.Pitch + j, 1, 1, fp_temp);
+//        }
+//    }
+//    for(int i=0; i < h; i++)
+//    {
+//        for(int j=1; j < w; j += 2)
+//        {
+//            fwrite(pData.UV + (pInfo.CropY * pData.Pitch / 2 + pInfo.CropX) + i * pData.Pitch + j, 1, 1, fp_temp);
+//        }
+//    }
     pthread_mutex_unlock(&lockerx);
     return true;
 }

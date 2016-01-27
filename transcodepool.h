@@ -23,6 +23,13 @@ extern "C"
 #include "pthread.h"
 #define PIN_NUM 7
 
+//#include "mfxmvc.h"
+//#include "mfxjpeg.h"
+#include "mfxplugin.h"
+#include "mfxplugin++.h"
+#include "mfxvideo.h"
+#include "mfxvideo++.h"
+
 typedef unsigned char BYTE;
 
 //typedef struct tagSample
@@ -40,6 +47,7 @@ public:
     ~transcodepool();
     void Init();
     bool GetFrame( uint8_t *YFrameBuf,  int DataLength, unsigned long * plTimeStamp, int i);
+    bool PutFrame( mfxFrameSurface1 *pSurface);
     bool PutFrame( AVFrame *pVideoframe , int index);
 private:
 //    pthread_mutex_t lockerx;

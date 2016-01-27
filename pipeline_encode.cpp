@@ -74,7 +74,7 @@ mfxStatus CEncTaskPool::Init(MFXVideoSession* pmfxSession, outudppool*  pLoopLis
         sts = m_pTasks[i].Init( nBufferSize, pLoopListBuffer, pSample );
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
     }
-    fpout_v = fopen("transcodeV.264","ab+");
+    fpout_v = fopen("transcodeV.264","wb+");
     fp_yuv = fopen("tempV.yuv","ab+");
 
     return MFX_ERR_NONE;
@@ -1156,24 +1156,30 @@ mfxStatus CEncodingPipeline::LoadFrameFromBuffer(mfxFrameSurface1* pSurface,  un
         memcpy( ptr + i*pitch, YFrameBuf+w*i, w );
     }
 
-    mfxU8 buf[1024];
     ptr = pData.UV + pInfo.CropX + (pInfo.CropY / 2) * pitch;
     for( i=0; i<h/2; i++)
     {
-        memcpy(buf, YFrameBuf + w*h + w/2*i, w/2);
-        for (j = 0; j < w/2; j++)
-        {
-            ptr[i * pitch + j * 2] = buf[j];
-        }
+        memcpy( ptr + i*pitch, YFrameBuf + w*h + w*i, w);
     }
-    for( i=0; i<h/2; i++)
-    {
-        memcpy(buf, YFrameBuf + w*h*5/4 + w/2*i, w/2);
-        for (j = 0; j < w/2; j++)
-        {
-            ptr[i * pitch + j * 2 + 1] = buf[j];
-        }
-    }
+
+//    mfxU8 buf[1024];
+//    ptr = pData.UV + pInfo.CropX + (pInfo.CropY / 2) * pitch;
+//    for( i=0; i<h/2; i++)
+//    {
+//        memcpy(buf, YFrameBuf + w*h + w/2*i, w/2);
+//        for (j = 0; j < w/2; j++)
+//        {
+//            ptr[i * pitch + j * 2] = buf[j];
+//        }
+//    }
+//    for( i=0; i<h/2; i++)
+//    {
+//        memcpy(buf, YFrameBuf + w*h*5/4 + w/2*i, w/2);
+//        for (j = 0; j < w/2; j++)
+//        {
+//            ptr[i * pitch + j * 2 + 1] = buf[j];
+//        }
+//    }
 
     av_free(YFrameBuf);
 

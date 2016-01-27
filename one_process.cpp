@@ -245,35 +245,15 @@ void one_process::InitVideoDecoderParam( sInputParams *pParams )
 {
     if( NULL == pParams )
         return;
-//    g_decodeDevice[0]->Init(0);
     pParams->decode = g_decodeDevice[0];
     pParams->decodeID = m_index;
     pParams->videoType = MFX_CODEC_MPEG2;
-//    pParams->mode = ;
-//    pParams->memType = ;
     pParams->bUseHWLib = true;
-    pParams->bIsMVC = false;
-    pParams->bLowLat = false;
-    pParams->bCalLat = false;
-//    pParams->nMaxFPS = ;
-//    pParams->nWallCell = ;
-//    pParams->nWallW = ;
-//    pParams->nWallH = ;
-//    pParams->nWallMonitor = ;
-//    pParams->bWallNoTitle = ;
-//    pParams->nWallTimeout = ;
-//    pParams->numViews = ;
-//    pParams->nRotation = ;
     if(pParams->nAsyncDepth == 0)
         pParams->nAsyncDepth = 4;
-//    pParams->gpuCopy = ;
-//    pParams->nThreadsNum = ;
-//    pParams->SchedulingType = ;
-//    pParams->Priority = ;
-    pParams->width = 720;
-    pParams->height = 576;
-    pParams->fourcc = MFX_FOURCC_NV12;
-//    pParams->nFrames = ;
+//    pParams->width = 720;
+//    pParams->height = 576;
+//    pParams->fourcc = MFX_FOURCC_NV12;
 
 }
 

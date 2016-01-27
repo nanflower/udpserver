@@ -36,6 +36,7 @@ Copyright(c) 2005-2015 Intel Corporation. All Rights Reserved.
 //#pragma warning(disable : 4100)
 
 #define __SYNC_WA // avoid sync issue on Media SDK side
+FILE *fp_decode;
 
 void WipeMfxBitstream(mfxBitstream* pBitstream)
 {
@@ -137,6 +138,8 @@ bool CheckVersion(mfxVersion* version, msdkAPIFeature feature)
 
 CDecodingPipeline::CDecodingPipeline()
 {
+    fp_decode = fopen("decode.mpg","wb+"); //输出文件
+
     m_deviceid = 0;
     m_InputReader = NULL;
 
@@ -201,10 +204,11 @@ mfxStatus CDecodingPipeline::Init(sInputParams *pParams)
 //    pParams->fourcc = MFX_FOURCC_NV12;
 
     mfxStatus sts = MFX_ERR_NONE;
-//    m_memType = pParams->memType;
-//    m_nMaxFps = pParams->nMaxFPS;
-//    m_nFrames = pParams->nFrames ? pParams->nFrames : MFX_INFINITE;
+    m_memType = pParams->memType;
+    m_nMaxFps = pParams->nMaxFPS;
+    m_nFrames = pParams->nFrames ? pParams->nFrames : MFX_INFINITE;
     m_InputReader = pParams->decode;
+
 
 //    m_InputReader->Init(0);
 //    if (MFX_CODEC_CAPTURE != pParams->videoType)
@@ -253,11 +257,13 @@ mfxStatus CDecodingPipeline::Init(sInputParams *pParams)
     if (pParams->bUseHWLib) {
         // try searching on all display adapters
         initPar.Implementation = MFX_IMPL_HARDWARE_ANY;
-
-        // if d3d11 surfaces are used ask the library to run acceleration through D3D11
+//        initPar.Implementation = MFX_IMPL_HARDWARE;
+//        initPar.Implementation = MFX_IMPL_SOFTWARE;
+//        initPar.Implementation = (initPar.Implementation & !MFX_IMPL_HARDWARE_ANY) | MFX_IMPL_HARDWARE;
+//         if d3d11 surfaces are used ask the library to run acceleration through D3D11
         // feature may be unsupported due to OS or MSDK API version
-        if (D3D11_MEMORY == pParams->memType)
-            initPar.Implementation |= MFX_IMPL_VIA_D3D11;
+//        if (D3D11_MEMORY == pParams->memType)
+//            initPar.Implementation |= MFX_IMPL_VIA_D3D11;
 
         sts = m_mfxSession.InitEx(initPar);
 
@@ -297,18 +303,18 @@ mfxStatus CDecodingPipeline::Init(sInputParams *pParams)
     MSDK_CHECK_POINTER(m_pmfxDEC, MFX_ERR_MEMORY_ALLOC);
 
     // set video type in parameters
-    memset(&m_mfxVideoParams, 0, sizeof(m_mfxVideoParams));
+//    memset(&m_mfxVideoParams, 0, sizeof(m_mfxVideoParams));
     m_mfxVideoParams.mfx.CodecId = pParams->videoType;
 //    m_mfxVideoParams.IOPattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
-    printf("code id = %d \n",m_mfxVideoParams.mfx.CodecId);
+//    printf("code id = %d \n",m_mfxVideoParams.mfx.CodecId);
 
     // prepare bit stream
-    memset(&m_mfxBS, 0, sizeof(m_mfxBS));
-    m_mfxBS.MaxLength = 1024 * 1024;
-    m_mfxBS.Data = new mfxU8[m_mfxBS.MaxLength];
-    MSDK_CHECK_POINTER(m_mfxBS.Data, MFX_ERR_MEMORY_ALLOC);
-//    sts = InitMfxBitstream(&m_mfxBS, 1024 * 1024);
-//    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+//    memset(&m_mfxBS, 0, sizeof(m_mfxBS));
+//    m_mfxBS.MaxLength = 1024 * 1024;
+//    m_mfxBS.Data = new mfxU8[m_mfxBS.MaxLength];
+//    MSDK_CHECK_POINTER(m_mfxBS.Data, MFX_ERR_MEMORY_ALLOC);
+    sts = InitMfxBitstream(&m_mfxBS, 1024 * 1024);
+    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
     if (CheckVersion(&version, MSDK_FEATURE_PLUGIN_API)) {
         /* Here we actually define the following codec initialization scheme:
@@ -333,9 +339,9 @@ mfxStatus CDecodingPipeline::Init(sInputParams *pParams)
 
             if (AreGuidsEqual(pParams->pluginParams.pluginGuid, MSDK_PLUGINGUID_NULL))
             {
-
-                mfxIMPL impl = pParams->bUseHWLib ? MFX_IMPL_HARDWARE : MFX_IMPL_SOFTWARE;
-                pParams->pluginParams.pluginGuid = msdkGetPluginUID(impl, MSDK_VDECODE, pParams->videoType);
+                printf("guid equal .....................................................................\n");
+//                mfxIMPL impl = pParams->bUseHWLib ? MFX_IMPL_HARDWARE : MFX_IMPL_SOFTWARE;
+//                pParams->pluginParams.pluginGuid = msdkGetPluginUID(impl, MSDK_VDECODE, pParams->videoType);
             }
 //            if (!AreGuidsEqual(pParams->pluginParams.pluginGuid, MSDK_PLUGINGUID_NULL))
 //            {
@@ -351,6 +357,7 @@ mfxStatus CDecodingPipeline::Init(sInputParams *pParams)
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
     m_eWorkMode = pParams->mode;
+    m_eWorkMode = MODE_RENDERING;
     if (m_eWorkMode == MODE_FILE_DUMP) {
         // prepare YUV file writer
 //        sts = m_FileWriter.Init(pParams->strDstFile, pParams->numViews);
@@ -367,8 +374,29 @@ mfxStatus CDecodingPipeline::Init(sInputParams *pParams)
     // in case of HW accelerated decode frames must be allocated prior to decoder initialization
     sts = AllocFrames();
     MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+    // Query number required surfaces for decoder
+//    mfxFrameAllocRequest DecRequest;
+//    memset(&DecRequest, 0, sizeof(DecRequest));
+//    sts = m_pmfxDEC->QueryIOSurf(&m_mfxVideoParams, &DecRequest);
+//    MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
+//    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    printf("buffer size =%d , \n ",m_mfxVideoParams.NumExtParam);
+    PrintInfo();
+    printf(	"reserved[0] = %d, reserved[1] = %d, reserved[2] = %d, reserved3 = %d\n"
+    "AsyncDepth = %d,Protected = %d, IOPattern = %d, NumExtParam = %d, reserved2 = %d\n"
+    "INFOMFX: LowPower =%d , BRCParamMultiplier =%d, CodeId = %d, CodecProfile = %d \n"
+    "	CodecLevel = %d, NumThread = %d\n"
+    "   DecodedOrder = %d, ExtendedPicStruct = %d, TimeStampCalc = %d, SliceGroupsPresent = %d\n"
+    "   MaxDecFrameBuffering = %d, reserved2[0] = %d\n",
+    m_mfxVideoParams.reserved[0],m_mfxVideoParams.reserved[1],m_mfxVideoParams.reserved[2],
+    m_mfxVideoParams.reserved3,m_mfxVideoParams.AsyncDepth,m_mfxVideoParams.Protected,m_mfxVideoParams.IOPattern,
+    m_mfxVideoParams.NumExtParam,m_mfxVideoParams.reserved2,
+    m_mfxVideoParams.mfx.LowPower,m_mfxVideoParams.mfx.BRCParamMultiplier,m_mfxVideoParams.mfx.CodecId,
+    m_mfxVideoParams.mfx.CodecProfile,m_mfxVideoParams.mfx.CodecLevel,m_mfxVideoParams.mfx.NumThread,
+    m_mfxVideoParams.mfx.DecodedOrder,m_mfxVideoParams.mfx.ExtendedPicStruct,m_mfxVideoParams.mfx.TimeStampCalc,
+    m_mfxVideoParams.mfx.SliceGroupsPresent,m_mfxVideoParams.mfx.MaxDecFrameBuffering,m_mfxVideoParams.mfx.reserved2[0]);
+//    printf("",);
+
     sts = m_pmfxDEC->Init(&m_mfxVideoParams);
 
     if (MFX_WRN_PARTIAL_ACCELERATION == sts)
@@ -533,42 +561,48 @@ mfxStatus CDecodingPipeline::InitMfxParams(sInputParams *pParams)
     else
         MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
-    sts = m_pmfxDEC->DecodeHeader(&m_mfxBS, &m_mfxVideoParams);
-    MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+//    sts = m_pmfxDEC->DecodeHeader(&m_mfxBS, &m_mfxVideoParams);
+//    MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
+//    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
     // try to find a sequence header in the stream
     // if header is not found this function exits with error (e.g. if device was lost and there's no header in the remaining stream)
 //    int length = 0;
-//    for(;;)
-//    {
+    for(;;)
+    {
 
-//        // parse bit stream and fill mfx params
+        // parse bit stream and fill mfx params
 //        length += m_mfxBS.DataLength;
 //        printf("mfxBS. maxlength = %d, Datalength = %d, length = %d\n",m_mfxBS.MaxLength, m_mfxBS.DataLength, length);
-//        sts = m_pmfxDEC->DecodeHeader(&m_mfxBS, &m_mfxVideoParams);
+//        m_mfxBS.DataLength = 0;
+        sts = m_pmfxDEC->DecodeHeader(&m_mfxBS, &m_mfxVideoParams);
 //        printf("sts = %d after mfxBS. maxlength = %d, Datalength = %d\n",sts,m_mfxBS.MaxLength, m_mfxBS.DataLength);
-//        if (MFX_ERR_MORE_DATA == sts)
-//        {
-//            if (m_mfxBS.MaxLength == m_mfxBS.DataLength)
-//            {
-//                sts = ExtendMfxBitstream(&m_mfxBS, m_mfxBS.MaxLength * 2);
-//                MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
-//            }
+        if (MFX_ERR_MORE_DATA == sts)
+        {
+            if (m_mfxBS.MaxLength == m_mfxBS.DataLength)
+            {
+                sts = ExtendMfxBitstream(&m_mfxBS, m_mfxBS.MaxLength * 2);
+                MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+            }
 
-//            // read a portion of data for DecodeHeader function
-//            sts = ReadFrameFromBuffer(&m_mfxBS);
-//            if (MFX_ERR_MORE_DATA == sts)
-//                return sts;
-//            else
-//                MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+            // read a portion of data for DecodeHeader function
+            sts = ReadFrameFromBuffer(&m_mfxBS);
+            if (MFX_ERR_MORE_DATA == sts)
+                return sts;
+            else
+                MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+//            fwrite(m_mfxBS.Data,m_mfxBS.DataLength, 1, fp_decode);
 
-
-//            continue;
-//        }
-//        else
-//            break;
-//    }
+            continue;
+        }
+//        sts = ReadFrameFromBuffer(&m_mfxBS);
+//        fwrite(m_mfxBS.Data,m_mfxBS.DataLength, 1, fp_decode);
+        else{
+            break;
+        }
+    }
+    MSDK_IGNORE_MFX_STS(sts, MFX_WRN_PARTIAL_ACCELERATION);
+    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
 
 //    for (; MFX_CODEC_CAPTURE != pParams->videoType;)
 //    {
@@ -696,9 +730,10 @@ mfxStatus CDecodingPipeline::InitMfxParams(sInputParams *pParams)
 //    }
 
 //    // specify memory type
-    m_mfxVideoParams.IOPattern = (mfxU16)(m_memType != SYSTEM_MEMORY ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
+//    m_mfxVideoParams.IOPattern = (mfxU16)(m_memType != SYSTEM_MEMORY ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
+    m_mfxVideoParams.IOPattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
 
-    m_mfxVideoParams.AsyncDepth = pParams->nAsyncDepth;
+    m_mfxVideoParams.AsyncDepth = 4;
 
     return MFX_ERR_NONE;
 }
@@ -768,9 +803,9 @@ mfxStatus CDecodingPipeline::AllocFrames()
 
     MSDK_ZERO_MEMORY(Request);
 
-    sts = m_pmfxDEC->Query(&m_mfxVideoParams, &m_mfxVideoParams);
-    MSDK_IGNORE_MFX_STS(sts, MFX_WRN_INCOMPATIBLE_VIDEO_PARAM);
-    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
+//    sts = m_pmfxDEC->Query(&m_mfxVideoParams, &m_mfxVideoParams);
+//    MSDK_IGNORE_MFX_STS(sts, MFX_WRN_INCOMPATIBLE_VIDEO_PARAM);
+//    MSDK_CHECK_RESULT(sts, MFX_ERR_NONE, sts);
     // calculate number of surfaces required for decoder
     sts = m_pmfxDEC->QueryIOSurf(&m_mfxVideoParams, &Request);
     if (MFX_WRN_PARTIAL_ACCELERATION == sts)
@@ -991,8 +1026,8 @@ mfxStatus CDecodingPipeline::AllocateExtBuffer()
 
 void CDecodingPipeline::AttachExtParam()
 {
-    m_mfxVideoParams.ExtParam = reinterpret_cast<mfxExtBuffer**>(&m_ExtBuffers[0]);
-    m_mfxVideoParams.NumExtParam = static_cast<mfxU16>(m_ExtBuffers.size());
+//    m_mfxVideoParams.ExtParam = reinterpret_cast<mfxExtBuffer**>(&m_ExtBuffers[0]);
+//    m_mfxVideoParams.NumExtParam = static_cast<mfxU16>(m_ExtBuffers.size());
 }
 
 void CDecodingPipeline::DeleteExtBuffers()
@@ -1086,6 +1121,7 @@ mfxStatus CDecodingPipeline::ResetDecoder(sInputParams *pParams)
 mfxStatus CDecodingPipeline::DeliverOutput(mfxFrameSurface1* frame)
 {
 //    CAutoTimer timer_fwrite(m_tick_fwrite);
+//    printf("deliver ..............................................\n");
 
     mfxStatus res = MFX_ERR_NONE, sts = MFX_ERR_NONE;
 
@@ -1098,7 +1134,8 @@ mfxStatus CDecodingPipeline::DeliverOutput(mfxFrameSurface1* frame)
             res = m_pMFXAllocator->Lock(m_pMFXAllocator->pthis, frame->Data.MemId, &(frame->Data));
             if (MFX_ERR_NONE == res) {
 //                res = m_FileWriter.WriteNextFrame(frame);
-//                res = m_OutputWriter->PutFrame(frame);
+                m_OutputWriter->PutFrame(frame);
+//                fwrite(frame->Data, frame->Info.BufferSize)
                 sts = m_pMFXAllocator->Unlock(m_pMFXAllocator->pthis, frame->Data.MemId, &(frame->Data));
             }
             if ((MFX_ERR_NONE == res) && (MFX_ERR_NONE != sts)) {
@@ -1113,7 +1150,7 @@ mfxStatus CDecodingPipeline::DeliverOutput(mfxFrameSurface1* frame)
         }
     }
     else {
-//        res = m_OutputWriter->PutFrame(frame);
+        m_OutputWriter->PutFrame(frame);
 //        res = m_FileWriter.WriteNextFrame(frame);
     }
 
@@ -1254,19 +1291,21 @@ mfxStatus CDecodingPipeline::ReadFrameFromBuffer(mfxBitstream* pBS)
     pData = (uint8_t*)av_mallocz(sizeof(uint8_t)*500000);
     memmove(pBS->Data, pBS->Data + pBS->DataOffset, pBS->DataLength);
     pBS->DataOffset = 0;
-    while(pBS->MaxLength != pBS->DataLength)
-    {
+//    while(pBS->MaxLength != pBS->DataLength)
+//    {
+//    while (1) {
         int LastLength = pBS->MaxLength - pBS->DataLength;
         if( !m_InputReader->getbuffer(pData, LastLength, &DataLength, &TimeStamp, 0) )
         {
             return MFX_TASK_BUSY;
+
         }
 
         memcpy( pBS->Data + pBS->DataLength, pData, DataLength);
 
         pBS->DataLength += DataLength;
-    }
-    printf(" DataLength = %d, MAXlenght =%d \n", pBS->DataLength, pBS->MaxLength);
+//    }
+//    printf(" DataLength = %d, MAXlenght =%d \n", pBS->DataLength, pBS->MaxLength);
 
 
     return MFX_ERR_NONE;
@@ -1294,13 +1333,13 @@ mfxStatus CDecodingPipeline::RunDecoding()
             return MFX_ERR_MEMORY_ALLOC;
         }
     }
-
     if (MFX_CODEC_CAPTURE == this->m_mfxVideoParams.mfx.CodecId)
     {
         pBitstream = 0;
     }
 
     while (((sts == MFX_ERR_NONE) || (MFX_ERR_MORE_DATA == sts) || (MFX_ERR_MORE_SURFACE == sts)) && (m_nFrames > m_output_count)){
+//        printf("run decode ......................... error = %d\n",m_error);
         if (MFX_ERR_NONE != m_error) {
             msdk_printf(MSDK_STRING("DeliverOutput return error = %d\n"),m_error);
             break;
@@ -1309,7 +1348,7 @@ mfxStatus CDecodingPipeline::RunDecoding()
 //            CAutoTimer timer_fread(m_tick_fread);
 //            sts = m_FileReader->ReadNextFrame(pBitstream); // read more data to input bit stream
             sts = ReadFrameFromBuffer(pBitstream);
-            printf("ReadFrameFromBuffer size = %d \n", pBitstream->DataLength);
+//            printf("ReadFrameFromBuffer size = %d \n", pBitstream->DataLength);
 
             if (MFX_ERR_MORE_DATA == sts) {
                 if (!m_bIsVideoWall) {
@@ -1385,7 +1424,7 @@ mfxStatus CDecodingPipeline::RunDecoding()
             sts = MFX_ERR_NONE;
             break;
         }
-
+//        printf("err sts = %d ....................\n",sts);
         if ((MFX_ERR_NONE == sts) || (MFX_ERR_MORE_DATA == sts) || (MFX_ERR_MORE_SURFACE == sts)) {
             if (m_bIsCompleteFrame) {
                 m_pCurrentFreeSurface->submit = m_timer_overall.Sync();
@@ -1393,7 +1432,7 @@ mfxStatus CDecodingPipeline::RunDecoding()
             pOutSurface = NULL;
             do {
                 sts = m_pmfxDEC->DecodeFrameAsync(pBitstream, &(m_pCurrentFreeSurface->frame), &pOutSurface, &(m_pCurrentFreeOutputSurface->syncp));
-
+//                printf("decode frame sts = %d \n", sts);
                 if (MFX_WRN_DEVICE_BUSY == sts) {
                     if (m_bIsCompleteFrame) {
                         //in low latency mode device busy leads to increasing of latency
@@ -1471,7 +1510,7 @@ mfxStatus CDecodingPipeline::RunDecoding()
             m_pCurrentFreeOutputSurface = NULL;
         }
     } //while processing
-
+//    printf("run decode .........................\n");
 //    PrintPerFrameStat(true);
 
     if (m_bPrintLatency && m_vLatency.size() > 0) {
@@ -1512,35 +1551,37 @@ mfxStatus CDecodingPipeline::RunDecoding()
 
 void CDecodingPipeline::PrintInfo()
 {
-//    msdk_printf(MSDK_STRING("Decoding Sample Version %s\n\n"), MSDK_SAMPLE_VERSION);
+    msdk_printf(MSDK_STRING("Decoding Sample Version %s\n\n"), MSDK_SAMPLE_VERSION);
 //    msdk_printf(MSDK_STRING("\nInput video\t%s\n"), CodecIdToStr(m_mfxVideoParams.mfx.CodecId).c_str());
-//    msdk_printf(MSDK_STRING("Output format\t%s\n"), MSDK_STRING("YUV420"));
+    msdk_printf(MSDK_STRING("Output format\t%s\n"), MSDK_STRING("YUV420"));
 
-//    mfxFrameInfo Info = m_mfxVideoParams.mfx.FrameInfo;
-//    msdk_printf(MSDK_STRING("Resolution\t%dx%d\n"), Info.Width, Info.Height);
-//    msdk_printf(MSDK_STRING("Crop X,Y,W,H\t%d,%d,%d,%d\n"), Info.CropX, Info.CropY, Info.CropW, Info.CropH);
+    mfxFrameInfo Info = m_mfxVideoParams.mfx.FrameInfo;
+    msdk_printf(MSDK_STRING("Resolution\t%dx%d\n"), Info.Width, Info.Height);
+    msdk_printf(MSDK_STRING("Crop X,Y,W,H\t%d,%d,%d,%d \n"), Info.CropX, Info.CropY, Info.CropW, Info.CropH);
 
+    if(m_mfxVideoParams.mfx.CodecId == MFX_CODEC_MPEG2)
+        printf("decode type: mpeg2 %d, %d\n",Info.FrameRateExtN, Info.FrameRateExtD);
 //    mfxF64 dFrameRate = CalculateFrameRate(Info.FrameRateExtN, Info.FrameRateExtD);
 //    msdk_printf(MSDK_STRING("Frame rate\t%.2f\n"), dFrameRate);
 
-//    const msdk_char* sMemType = m_memType == D3D9_MEMORY  ? MSDK_STRING("d3d")
-//                             : (m_memType == D3D11_MEMORY ? MSDK_STRING("d3d11")
-//                                                          : MSDK_STRING("system"));
-//    msdk_printf(MSDK_STRING("Memory type\t\t%s\n"), sMemType);
+    const msdk_char* sMemType = m_memType == D3D9_MEMORY  ? MSDK_STRING("d3d")
+                             : (m_memType == D3D11_MEMORY ? MSDK_STRING("d3d11")
+                                                          : MSDK_STRING("system"));
+    msdk_printf(MSDK_STRING("Memory type\t\t%s\n"), sMemType);
 
-//    mfxIMPL impl;
-//    m_mfxSession.QueryIMPL(&impl);
+    mfxIMPL impl;
+    m_mfxSession.QueryIMPL(&impl);
 
-//    const msdk_char* sImpl = (MFX_IMPL_VIA_D3D11 == MFX_IMPL_VIA_MASK(impl)) ? MSDK_STRING("hw_d3d11")
-//                           : (MFX_IMPL_HARDWARE & impl)  ? MSDK_STRING("hw")
-//                                                         : MSDK_STRING("sw");
-//    msdk_printf(MSDK_STRING("MediaSDK impl\t\t%s\n"), sImpl);
+    const msdk_char* sImpl = (MFX_IMPL_VIA_D3D11 == MFX_IMPL_VIA_MASK(impl)) ? MSDK_STRING("hw_d3d11")
+                           : (MFX_IMPL_HARDWARE & impl)  ? MSDK_STRING("hw")
+                                                         : MSDK_STRING("sw");
+    msdk_printf(MSDK_STRING("MediaSDK impl\t\t%s\n"), sImpl);
 
-//    mfxVersion ver;
-//    m_mfxSession.QueryVersion(&ver);
-//    msdk_printf(MSDK_STRING("MediaSDK version\t%d.%d\n"), ver.Major, ver.Minor);
+    mfxVersion ver;
+    m_mfxSession.QueryVersion(&ver);
+    msdk_printf(MSDK_STRING("MediaSDK version\t%d.%d\n"), ver.Major, ver.Minor);
 
-//    msdk_printf(MSDK_STRING("\n"));
+    msdk_printf(MSDK_STRING("\n"));
 
-//    return;
+    return;
 }

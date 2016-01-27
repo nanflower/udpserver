@@ -49,6 +49,7 @@ bool decodepool::getbuffer(uint8_t *pData, int LastLength, int *DataLength,unsig
     }
     int Length = 0;
     pthread_mutex_lock(&lockdecode);
+                 printf(" get write111 = %d, read = %d\n", dewrite_ptr, deread_ptr);
     if(dewrite_ptr > deread_ptr)
     {
         Length = dewrite_ptr - deread_ptr;
@@ -86,7 +87,7 @@ bool decodepool::getbuffer(uint8_t *pData, int LastLength, int *DataLength,unsig
             *DataLength = Length;
         }
     }
-
+                 printf(" get write222 = %d, read = %d\n", dewrite_ptr, deread_ptr);
 
     *plTimeStamp = DeTimeStamp;
     pthread_mutex_unlock(&lockdecode);
@@ -98,13 +99,13 @@ bool decodepool::putbuffer(AVPacket *pVideoPacket, int index)
 {
 
     index = 0;
-    while(1)
-    {
-        if(dewrite_ptr == deread_ptr){
-            printf("write = %d, read = %d, size = %d\n", dewrite_ptr, deread_ptr, pVideoPacket->size);
-            break;
-        }
-    }
+//    while(1)
+//    {
+//        if(dewrite_ptr == deread_ptr){
+//            printf("write = %d, read = %d, size = %d\n", dewrite_ptr, deread_ptr, pVideoPacket->size);
+//            break;
+//        }
+//    }
 
     pthread_mutex_lock(&lockdecode);
 

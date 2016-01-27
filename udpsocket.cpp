@@ -512,7 +512,7 @@ int udpsocket::ts_demux(int index)
                                 av_init_packet(&audio_pkt);
                                 avcodec_encode_audio2(AudioEncodeCtx[i], &audio_pkt, pOutAudioframe[i], &got_frame);
                                 printf("Encode 1 Packet\tsize:%d\tpts:%lld\n", audio_pkt.size, audio_pkt.pts);
-                                fwrite(audio_pkt.data,audio_pkt.size, 1, fp_a);
+//                                fwrite(audio_pkt.data,audio_pkt.size, 1, fp_a);
                             }
                         }
 //                        if(i == 0){
