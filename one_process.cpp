@@ -34,13 +34,13 @@ void one_process::Init(int index)
 
     pthread_detach(mpeg2_decode_thread);
 
-//    pthread_t h264_encoder_thread;
-//    memset( &h264_encoder_thread, 0, sizeof( h264_encoder_thread ) );
+    pthread_t h264_encoder_thread;
+    memset( &h264_encoder_thread, 0, sizeof( h264_encoder_thread ) );
 
-//    if( 0 != pthread_create( &h264_encoder_thread, NULL, video_encoder, this ))
-//        printf("%s:%d  Error: Create video encoder thread failed !!!\n", __FILE__, __LINE__ );
+    if( 0 != pthread_create( &h264_encoder_thread, NULL, video_encoder, this ))
+        printf("%s:%d  Error: Create video encoder thread failed !!!\n", __FILE__, __LINE__ );
 
-//    pthread_detach(h264_encoder_thread);
+    pthread_detach(h264_encoder_thread);
 
 //    pthread_t udp_send_thread;
 //    memset( &udp_send_thread, 0, sizeof( udp_send_thread ) );
@@ -248,7 +248,7 @@ void one_process::InitVideoDecoderParam( sInputParams *pParams )
     pParams->decode = g_decodeDevice[0];
     pParams->decodeID = m_index;
     pParams->videoType = MFX_CODEC_MPEG2;
-    pParams->bUseHWLib = true;
+    pParams->bUseHWLib = false;
     if(pParams->nAsyncDepth == 0)
         pParams->nAsyncDepth = 4;
 //    pParams->width = 720;
@@ -305,10 +305,11 @@ void one_process::InitEncoderPar()
     m_EncoderParInfo.nGopOptFlag = MFX_GOP_STRICT;
     m_EncoderParInfo.nGopPicSize = 24;
     m_EncoderParInfo.nGopRefDist = 6;
-    m_EncoderParInfo.nLADepth = 49;
+//    m_EncoderParInfo.nLADepth = 49;
     m_EncoderParInfo.nNumSlice = 1;
     m_EncoderParInfo.nPicStruct = 0;
-    m_EncoderParInfo.nRateControlMethod = MFX_RATECONTROL_LA_ICQ;
+//    m_EncoderParInfo.nRateControlMethod = MFX_RATECONTROL_LA_ICQ;
+    m_EncoderParInfo.nRateControlMethod = MFX_RATECONTROL_CQP;
     m_EncoderParInfo.nTargetUsage = 4;
     m_EncoderParInfo.strCodecId = QString("AVC");
     m_EncoderParInfo.strColorFormat = QString("");
@@ -331,8 +332,8 @@ void one_process::InitVideoEncoderParam( sParams *pParams )
     pParams->nGopOptFlag = m_EncoderParInfo.nGopOptFlag;
     pParams->nWidth = 720;
     pParams->nHeight = 576;
-    GetQuality( pParams->nDstWidth, pParams->nDstHeight, pParams->nICQQuality );
-    pParams->nLADepth = m_EncoderParInfo.nLADepth;
+    GetQuality( pParams->nDstWidth, pParams->nDstHeight);
+//    pParams->nLADepth = m_EncoderParInfo.nLADepth;
     pParams->CodecId = MFX_CODEC_AVC;//GetCodecId();
     pParams->dFrameRate = m_EncoderParInfo.nFrameRate;
     pParams->bUseHWLib = true;//m_EncoderParInfo.bUseHWLib;
@@ -342,12 +343,11 @@ void one_process::InitVideoEncoderParam( sParams *pParams )
     pParams->MVC_flags = MVC_VIEWOUTPUT;
 }
 
-void one_process::GetQuality( unsigned short &nDstWidth, unsigned short &nDstHeight, unsigned short &nICQQuality )
+void one_process::GetQuality( unsigned short &nDstWidth, unsigned short &nDstHeight )
 {
 
         nDstWidth = 720;
         nDstHeight = 576;
-        nICQQuality = 36;
 
 }
 

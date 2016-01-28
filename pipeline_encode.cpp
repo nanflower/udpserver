@@ -796,6 +796,7 @@ void CEncodingPipeline::DeleteAllocator()
 
 CEncodingPipeline::CEncodingPipeline()
 {
+    memset(&m_EncodeCtrl, 0, sizeof(mfxEncodeCtrl));
     m_pMfxENC = NULL;
     m_pMfxVPP = NULL;
     m_pMFXAllocator = NULL;
@@ -1324,6 +1325,7 @@ mfxU32 CEncodingPipeline::GetNumber(mfxSession session)
 
 mfxStatus CEncodingPipeline::Run()
 {
+    m_EncodeCtrl.QP = 25;
     MSDK_CHECK_POINTER(m_pMfxENC, MFX_ERR_NOT_INITIALIZED);
 
     mfxStatus sts = MFX_ERR_NONE;
@@ -1387,7 +1389,7 @@ mfxStatus CEncodingPipeline::Run()
             pSurf->Info.FrameId.ViewId = currViewNum;
 //            printf(" get frame form buffer \n");
             sts = LoadFrameFromBuffer( pSurf, &lTimeStamp );
-            printf("timestamp = %ld, length = %d \n",lTimeStamp, pSurf->Info.BufferSize);
+//            printf("timestamp = %ld, length = %d \n",lTimeStamp, pSurf->Info.BufferSize);
             if( sts == MFX_TASK_BUSY )
                 continue;
             MSDK_BREAK_ON_ERROR(sts);
@@ -1450,7 +1452,7 @@ mfxStatus CEncodingPipeline::Run()
         for (;;)
         {
             // at this point surface for encoder contains either a frame from file or a frame processed by vpp
-            sts = m_pMfxENC->EncodeFrameAsync(NULL, &m_pEncSurfaces[nEncSurfIdx], &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
+            sts = m_pMfxENC->EncodeFrameAsync(&m_EncodeCtrl, &m_pEncSurfaces[nEncSurfIdx], &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
             // get next surface and new task for 2nd bitstream in ViewOutput mode
             MSDK_IGNORE_MFX_STS(sts, MFX_ERR_MORE_BITSTREAM);
             break;
@@ -1513,7 +1515,7 @@ mfxStatus CEncodingPipeline::Run()
 
             for (;;)
             {
-                sts = m_pMfxENC->EncodeFrameAsync(NULL, &m_pEncSurfaces[nEncSurfIdx], &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
+                sts = m_pMfxENC->EncodeFrameAsync(&m_EncodeCtrl, &m_pEncSurfaces[nEncSurfIdx], &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
 
                 if (MFX_ERR_NONE < sts && !pCurrentTask->EncSyncP) // repeat the call if warning and no output
                 {
@@ -1555,7 +1557,7 @@ mfxStatus CEncodingPipeline::Run()
 
         for (;;)
         {
-            sts = m_pMfxENC->EncodeFrameAsync(NULL, NULL, &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
+            sts = m_pMfxENC->EncodeFrameAsync(&m_EncodeCtrl, NULL, &pCurrentTask->mfxBS, &pCurrentTask->EncSyncP);
 
             if (MFX_ERR_NONE < sts && !pCurrentTask->EncSyncP) // repeat the call if warning and no output
             {

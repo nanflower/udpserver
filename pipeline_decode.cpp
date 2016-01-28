@@ -733,7 +733,7 @@ mfxStatus CDecodingPipeline::InitMfxParams(sInputParams *pParams)
 //    m_mfxVideoParams.IOPattern = (mfxU16)(m_memType != SYSTEM_MEMORY ? MFX_IOPATTERN_OUT_VIDEO_MEMORY : MFX_IOPATTERN_OUT_SYSTEM_MEMORY);
     m_mfxVideoParams.IOPattern = MFX_IOPATTERN_OUT_SYSTEM_MEMORY;
 
-    m_mfxVideoParams.AsyncDepth = 4;
+    m_mfxVideoParams.AsyncDepth = 1;
 
     return MFX_ERR_NONE;
 }

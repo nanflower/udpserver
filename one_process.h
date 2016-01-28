@@ -109,7 +109,7 @@ private:
     mfxStatus InitVideoEncoder( sParams *pParams );
     void InitVideoEncoderParam( sParams *pParams);
 //    void GetResolution( unsigned short& nWidth, unsigned short& nHeight );
-    void GetQuality( unsigned short& nDstWidth, unsigned short& nDstHeight, unsigned short& nICQQuality );
+    void GetQuality( unsigned short& nDstWidth, unsigned short& nDstHeight );
     void PauseVideoEncoderThread();
     void DestroyVideoEncoder();
 

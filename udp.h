@@ -15,7 +15,7 @@ public:
 
 private:
     udpsocket* m_ChannelGet[2];
-    one_process* m_VideoEncode;
+    one_process* m_VideoEncode[Channel_NUM];
 
 };
 

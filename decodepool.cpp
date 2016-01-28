@@ -43,13 +43,13 @@ bool decodepool::getbuffer(uint8_t *pData, int LastLength, int *DataLength,unsig
     while(1)
     {
          if( dewrite_ptr > deread_ptr  || ( (dewrite_ptr+100000) < deread_ptr) ){
-             printf(" get write = %d, read = %d\n", dewrite_ptr, deread_ptr);
+//             printf(" get write = %d, read = %d\n", dewrite_ptr, deread_ptr);
              break;
          }
     }
     int Length = 0;
     pthread_mutex_lock(&lockdecode);
-                 printf(" get write111 = %d, read = %d\n", dewrite_ptr, deread_ptr);
+//                 printf(" get write111 = %d, read = %d\n", dewrite_ptr, deread_ptr);
     if(dewrite_ptr > deread_ptr)
     {
         Length = dewrite_ptr - deread_ptr;
@@ -87,7 +87,7 @@ bool decodepool::getbuffer(uint8_t *pData, int LastLength, int *DataLength,unsig
             *DataLength = Length;
         }
     }
-                 printf(" get write222 = %d, read = %d\n", dewrite_ptr, deread_ptr);
+//                 printf(" get write222 = %d, read = %d\n", dewrite_ptr, deread_ptr);
 
     *plTimeStamp = DeTimeStamp;
     pthread_mutex_unlock(&lockdecode);

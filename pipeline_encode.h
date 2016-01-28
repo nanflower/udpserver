@@ -131,6 +131,7 @@ public:
     void StopEncoder( bool bStop );
     int m_deviceid;
 protected:
+    mfxEncodeCtrl m_EncodeCtrl;
     outudppool*  m_pLoopListBuffer;
     CEncTaskPool m_TaskPool;
     PSAMPLE       m_pSample;
