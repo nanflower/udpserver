@@ -32,36 +32,20 @@ void udpsocket::thread_init(int index)
 
     pthread_t udp_recv_thread;
     memset( &udp_recv_thread, 0, sizeof( udp_recv_thread ) );
-    if(index == 0){
-        if( 0 != pthread_create( &udp_recv_thread, NULL, udp_tsrecv, this ) )
-            printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
-    }
-    else if(index == 1){
-        if( 0 != pthread_create( &udp_recv_thread, NULL, udp_tsrecv1, this ) )
-            printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
-    }
+    if( 0 != pthread_create( &udp_recv_thread, NULL, udp_tsrecv, this ) )
+        printf("%s:%d  Error: Create udp receive thread failed !!!\n", __FILE__, __LINE__ );
 
     pthread_t ts_demux_thread;
     memset( &ts_demux_thread, 0, sizeof( ts_demux_thread ) );
 
-    if(index == 0){
-        if( 0 != pthread_create( &ts_demux_thread, NULL, ts_demuxer, this ) )
-            printf("%s:%d  Error: Create ts demux thread failed !!!\n", __FILE__, __LINE__ );
-    }
-    else if(index == 1){
-        if( 0 != pthread_create( &ts_demux_thread, NULL, ts_demuxer1, this ) )
-            printf("%s:%d  Error: Create ts demux thread failed !!!\n", __FILE__, __LINE__ );
-    }
+    if( 0 != pthread_create( &ts_demux_thread, NULL, ts_demuxer, this ) )
+        printf("%s:%d  Error: Create ts demux thread failed !!!\n", __FILE__, __LINE__ );
 
-//    pthread_t h264_encoder_thread;
-//    if(index == 0){
-//        if( 0 != pthread_create( &h264_encoder_thread, NULL, video_encoder, this ))
-//            printf("%s:%d  Error: Create video encoder thread failed !!!\n", __FILE__, __LINE__ );
-//    }
-
-//    pthread_detach(h264_encoder_thread);
     pthread_detach(ts_demux_thread);
     pthread_detach(udp_recv_thread);
+
+    m_transProcess = new one_process(0);
+    m_transProcess->Init();
 }
 
 void *udpsocket::udp_tsrecv(void *pArg)
@@ -72,14 +56,6 @@ void *udpsocket::udp_tsrecv(void *pArg)
     return (void*)NULL;
 }
 
-void *udpsocket::udp_tsrecv1(void *pArg)
-{
-    udpsocket* pTemp = (udpsocket*)pArg;
-    if( pTemp )
-        pTemp->udp_ts_recv1();
-    return (void*)NULL;
-}
-
 void *udpsocket::ts_demuxer(void *pArg)
 {
     udpsocket* pTemp = (udpsocket*) pArg;
@@ -87,33 +63,6 @@ void *udpsocket::ts_demuxer(void *pArg)
         pTemp->ts_demux(1);
     //    pTemp->thread_test();
     return (void*)NULL;
-}
-
-void *udpsocket::ts_demuxer1(void *pArg)
-{
-    udpsocket* pTemp = (udpsocket*) pArg;
-    if( pTemp )
-        pTemp->ts_demux(2);
-    //    pTemp->thread_test();
-    return (void*)NULL;
-}
-
-void *udpsocket::video_encoder(void *pArg)
-{
-//    udpsocket* pTemp = (udpsocket*) pArg;
-////    if( pTemp )
-////        pTemp->run_video_encoder();
-//    //    pTemp->thread_test();
-//    return (void*)NULL;
-}
-
-int udpsocket::thread_test()
-{
-    while(1)
-    {
-        printf("thread work\n");
-    }
-    return 1;
 }
 
 int udpsocket::ts_demux(int index)
@@ -193,19 +142,15 @@ int udpsocket::ts_demux(int index)
     AVCodecContext *AudioEncodeCtx[AUDIO_NUM];
     AVCodec *AudioEncoder[AUDIO_NUM];
 
-    fp_v = fopen("OUT.yuv","ab+"); //输出文件
-    fp_a = fopen("audio_out.aac","wb+");
+//    fp_v = fopen("OUT.yuv","ab+"); //输出文件
+//    fp_a = fopen("audio_out.aac","wb+");
 
     //FFMPEG
     av_register_all();
-    if(index == 1){
-        pb = avio_alloc_context(buffer, 4096, 0, NULL, read_data, NULL, NULL);
-        printf("thread %d pid %lu tid %lu\n",index,(unsigned long)getpid(),(unsigned long)pthread_self());
-    }
-    else if(index == 2){
-        pb = avio_alloc_context(buffer, 4096, 0, NULL, read_data1, NULL, NULL);
-        printf("thread %d pid %lu tid %lu\n",index,(unsigned long)getpid(),(unsigned long)pthread_self());
-    }
+
+    pb = avio_alloc_context(buffer, 4096, 0, NULL, read_data, NULL, NULL);
+    printf("thread %d pid %lu tid %lu\n",index,(unsigned long)getpid(),(unsigned long)pthread_self());
+
     if (!pb) {
         fprintf(stderr, "avio alloc failed!\n");
         return -1;
@@ -256,10 +201,10 @@ int udpsocket::ts_demux(int index)
     for(int i=0; i<VIDEO_NUM; i++)
         printf("videoindex %d = %d, audioindex %d = %d\n",i , videoindex[i], i ,audioindex[i]);
 
-    if (videoindex[6] < 0 || audioindex[6] < 0) {
-        fprintf(stderr, "videoindex=%d, audioindex=%d\n", videoindex[6], audioindex[6]);
-        return -1;
-    }
+//    if (videoindex[6] < 0 || audioindex[6] < 0) {
+//        fprintf(stderr, "videoindex=%d, audioindex=%d\n", videoindex[6], audioindex[6]);
+//        return -1;
+//    }
 
     for( int i=0; i<VIDEO_NUM; i++ ){
         pVst[i] = pFmt->streams[videoindex[i]];
@@ -611,79 +556,6 @@ void udpsocket::udp_ts_recv(void)
     }
 }
 
-void udpsocket::udp_ts_recv1(void)
-{
-  //  printf("thread 2 pid %lu tid %lu\n",(unsigned long)getpid(),(unsigned long)pthread_self());
-    /* 创建UDP套接口 */
-    struct sockaddr_in server_addr;
-    bzero(&server_addr, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-    //server_addr.sin_addr.s_addr = inet_addr("1.8.84.12");
-        server_addr.sin_port = htons(50102);
-
-    /* 创建socket */
-    int server_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);
-    if(server_socket_fd == -1)
-    {
-         perror("Create Socket Failed:");
-         exit(1);
-    }
-
-    memset(server_addr.sin_zero,0,8);
-     int re_flag=1;
-     int re_len=sizeof(int);
-     setsockopt(server_socket_fd,SOL_SOCKET,SO_REUSEADDR,&re_flag,re_len);
-
-    /* 绑定套接口 */
-    if(-1 == (bind(server_socket_fd,(struct sockaddr*)&server_addr,sizeof(server_addr))))
-    {
-         perror("Server Bind Failed:");
-         exit(1);
-    }
-    /* 数据传输 */
-
-    /* 定义一个地址，用于捕获客户端地址 */
-    struct sockaddr_in client_addr;
-    socklen_t client_addr_length = sizeof(client_addr);
-    /* 接收数据 */
-    uint8_t buffer[BUFFER_SIZE];
-    bzero(buffer, BUFFER_SIZE);
-//    struct timeval tv;
-//    fd_set readfds;
-//    tv.tv_sec = 3;
-//    tv.tv_usec = 10;
-//    FD_ZERO(&readfds);
-//    FD_SET(server_socket_fd, &readfds);
-
-    while(1)
-    {
-//         select(server_socket_fd+1,&readfds,NULL, NULL, &tv);
-//         if (FD_ISSET(server_socket_fd,&readfds))
-//         {
-             int len = recvfrom(server_socket_fd, buffer, BUFFER_SIZE,0,(struct sockaddr*)&client_addr, &client_addr_length);
-             if (len == -1)
-             {
-                 printf("received data error!\n");
-             }
-           // printf("receive length = %d\n",len);
-             m_tsRecvPool->put_queue1( buffer, len);
-       //      else
-      //       printf("socket %d work\n", multiindex);
-//         }
-//         else
-//         {
-//             printf("error is %d\n",errno);
-//             printf("timeout!there is no data arrived!\n");
-//         }
-     /* 从buffer中拷贝出file_name */
-//     char file_name[FILE_NAME_MAX_SIZE+1];
-//     bzero(file_name,FILE_NAME_MAX_SIZE+1);
-//     strncpy(file_name, buffer, strlen(buffer)>FILE_NAME_MAX_SIZE?FILE_NAME_MAX_SIZE:strlen(buffer));
-     //printf("%s\n", file_name);
-    }
-}
-
 
 int udpsocket::read_data(void *opaque, uint8_t *buf, int buf_size) {
 //	UdpParam udphead;
@@ -696,24 +568,6 @@ int udpsocket::read_data(void *opaque, uint8_t *buf, int buf_size) {
    // printf("read data %d\n", buf_size);
     do {
         ret = pTemp->get_queue( buf, size);
-     //   ret = m_tsRecvPool->GetTsPacket(buf);
-    } while (ret);
-
-  //  printf("read data Ok %d\n", buf_size);
-    return size;
-}
-
-int udpsocket::read_data1(void *opaque, uint8_t *buf, int buf_size) {
-//	UdpParam udphead;
- //   tspoolqueue* pTemp = new tspoolqueue;
-    tspoolqueue* pTemp = (tspoolqueue*)opaque;
-
-
-    int size = buf_size;
-    bool ret;
-   // printf("read data %d\n", buf_size);
-    do {
-        ret = pTemp->get_queue1( buf, size);
      //   ret = m_tsRecvPool->GetTsPacket(buf);
     } while (ret);
 

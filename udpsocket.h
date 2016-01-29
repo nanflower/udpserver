@@ -53,8 +53,7 @@ extern "C"
 
 //#include "tsrecvpool.h"
 #include "tspoolqueue.h"
-#include "transcodepool.h"
-#include "decodepool.h"
+#include "one_process.h"
 
 #define VIDEO_NUM 1
 #define AUDIO_NUM 1
@@ -92,6 +91,7 @@ public:
     static void* video_encoder(void *param);
     void run_video_encoder(void);
     tspoolqueue* m_tsRecvPool;
+    one_process* m_transProcess;
 //    int init_converted_samples(uint8_t ***converted_input_samples, AVCodecContext *output_codec_context, int frame_size);
 //    static int write_buffer(void *opaque, uint8_t *buf, int buf_size);
 //    int write_bufferq(uint8_t *buf, int buf_size);
