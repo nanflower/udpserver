@@ -245,6 +245,7 @@ void one_process::InitVideoDecoderParam( sInputParams *pParams )
     if( NULL == pParams )
         return;
     pParams->decode = g_decodeDevice[0];
+    pParams->transcode = g_pCaptureDeviceVec[0];
     pParams->decodeID = m_index;
     pParams->videoType = MFX_CODEC_MPEG2;
     pParams->bUseHWLib = false;
@@ -319,7 +320,7 @@ void one_process::InitVideoEncoderParam( sParams *pParams )
     if( NULL == pParams )
         return;
     pParams->ndeviceid = m_index;
-    pParams->vd = g_pCaptureDeviceVec[m_index];
+    pParams->vd = g_pCaptureDeviceVec[0];
     pParams->nCodecLevel = m_EncoderParInfo.nCodecLevel;
     pParams->nCodecProfile = m_EncoderParInfo.nCodecProfile;
     pParams->nPicStruct = MFX_PICSTRUCT_PROGRESSIVE;

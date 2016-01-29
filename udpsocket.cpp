@@ -548,7 +548,7 @@ void udpsocket::udp_ts_recv(void)
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     //server_addr.sin_addr.s_addr = inet_addr("1.8.84.12");
-        server_addr.sin_port = htons(50101);
+        server_addr.sin_port = htons(50102);
 
     /* 创建socket */
     int server_socket_fd = socket(AF_INET, SOCK_DGRAM, 0);

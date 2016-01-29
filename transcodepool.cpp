@@ -127,6 +127,7 @@ bool transcodepool::PutFrame( mfxFrameSurface1 *pSurface)
 
     mfxFrameInfo  &pInfo = pSurface->Info;
     mfxFrameData &pData = pSurface->Data;
+    TimeStamp = pSurface->Data.TimeStamp;
 
     int j=0;
     if(ywrite_ptr + pInfo.CropW*pInfo.CropH*3/2 <= ybufsize){

@@ -56,8 +56,8 @@ extern "C"
 #include "transcodepool.h"
 #include "decodepool.h"
 
-#define VIDEO_NUM 7
-#define AUDIO_NUM 7
+#define VIDEO_NUM 1
+#define AUDIO_NUM 1
 #define VIDEOBUF_SIZE 10000*188
 #define BUF_SIZE 4096*2000 //read buffer
 #define BUFFER_SIZE 4096      //recvfrom buffer

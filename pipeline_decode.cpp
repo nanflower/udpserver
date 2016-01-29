@@ -208,6 +208,7 @@ mfxStatus CDecodingPipeline::Init(sInputParams *pParams)
     m_nMaxFps = pParams->nMaxFPS;
     m_nFrames = pParams->nFrames ? pParams->nFrames : MFX_INFINITE;
     m_InputReader = pParams->decode;
+    m_OutputWriter = pParams->transcode;
 
 
 //    m_InputReader->Init(0);

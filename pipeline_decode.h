@@ -67,6 +67,7 @@ struct sInputParams
     int decodeID;
 
     decodepool* decode;
+    transcodepool* transcode;
     mfxU32 videoType;
     eWorkMode mode;
     MemType memType;
