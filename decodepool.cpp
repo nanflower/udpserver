@@ -23,10 +23,10 @@ void decodepool::Init(int index)
 {
     index = 0;
     for(int i=0; i<PIN_NUM; i++){
-        decode_buffer = (uint8_t*)av_mallocz(sizeof(uint8_t)*100000*3);
+        decode_buffer = (uint8_t*)av_mallocz(sizeof(uint8_t)*100000*2);
         deread_ptr = 0;
         dewrite_ptr = 0;
-        decode_bufsize = 100000*3;
+        decode_bufsize = 100000*2;
     }
 
     pthread_mutex_init(&lockdecode, NULL);
@@ -42,14 +42,14 @@ bool decodepool::getbuffer(uint8_t *pData, int LastLength, int *DataLength,unsig
 //printf("write = %d, read = %d\n", dewrite_ptr, deread_ptr);
     while(1)
     {
-         if( dewrite_ptr > deread_ptr  || ( (dewrite_ptr+100000) < deread_ptr) ){
+         if( dewrite_ptr > deread_ptr  || ( (dewrite_ptr+50000) < deread_ptr) ){
 //             printf(" get write = %d, read = %d\n", dewrite_ptr, deread_ptr);
              break;
          }
     }
     int Length = 0;
+
     pthread_mutex_lock(&lockdecode);
-//                 printf(" get write111 = %d, read = %d\n", dewrite_ptr, deread_ptr);
     if(dewrite_ptr > deread_ptr)
     {
         Length = dewrite_ptr - deread_ptr;
@@ -87,7 +87,6 @@ bool decodepool::getbuffer(uint8_t *pData, int LastLength, int *DataLength,unsig
             *DataLength = Length;
         }
     }
-//                 printf(" get write222 = %d, read = %d\n", dewrite_ptr, deread_ptr);
 
     *plTimeStamp = DeTimeStamp;
     pthread_mutex_unlock(&lockdecode);

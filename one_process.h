@@ -28,6 +28,7 @@
 #include <QTimer>
 
 #define BUFFER_SIZE 4096
+#define VIDEO_TRANSNUM 7
 
 typedef struct tagEncoderParameterInfo
 {
@@ -87,9 +88,9 @@ class one_process : public QObject
 {
     Q_OBJECT
 public:
-    one_process();
+    one_process(int index);
     ~one_process();
-    void Init(int index);
+    void Init(void);
     static void* video_decoder(void *param);
     void run_video_decoder(void);
     static void* video_encoder(void *param);

@@ -25,10 +25,10 @@ tspoolqueue::tspoolqueue()
 {
     pthread_mutex_init(&locker, NULL);
 //    pthread_cond_init(&cond, NULL);
-    q_buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*1024*1024*50);
+    q_buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*1024*1024*2);
     write_ptr = 0;
     read_ptr = 0;
-    bufsize = 1024*1024*50;
+    bufsize = 1024*1024*2;
     printf("buffer size = %d\n",bufsize);
     dst = q_buf;
     src = q_buf;
@@ -36,9 +36,9 @@ tspoolqueue::tspoolqueue()
 
     pthread_mutex_init(&locker1, NULL);
 //    pthread_cond_init(&cond, NULL);
-    q_buf1 = (uint8_t*)av_mallocz(sizeof(uint8_t)*1024*1024*50);
+    q_buf1 = (uint8_t*)av_mallocz(sizeof(uint8_t)*1024*1024*2);
     read_ptr1 = write_ptr1 = 0;
-    bufsize1 = 1024*1024*50;
+    bufsize1 = 1024*1024*2;
     printf("buffer size = %d\n",bufsize1);
 
     fpv1 = fopen("channel 1 video 1.h264","ab");

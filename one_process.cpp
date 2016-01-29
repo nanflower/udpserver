@@ -1,8 +1,8 @@
 #include "one_process.h"
 
-one_process::one_process()
+one_process::one_process( int index)
 {
-    m_index = 0;
+    m_index = index;
     m_bStopEncoder = false;
     m_pVideoEncoder = NULL;
     InitEncoderPar();
@@ -22,9 +22,8 @@ one_process::~one_process()
     DestroyVideoDecoder();
 }
 
-void one_process::Init(int index)
+void one_process::Init(void)
 {
-    m_index = index;
 
     pthread_t mpeg2_decode_thread;
     memset( &mpeg2_decode_thread, 0, sizeof( mpeg2_decode_thread ) );

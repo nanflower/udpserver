@@ -27,10 +27,10 @@ transcodepool::~transcodepool()
 void transcodepool::Init()
 {
     for(int i=0; i<PIN_NUM; i++){
-        yQueue_buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*720*576*30);
+        yQueue_buf = (uint8_t*)av_mallocz(sizeof(uint8_t)*720*576*6);
         yread_ptr = 0;
         ywrite_ptr = 0;
-        ybufsize = 720*576*30;
+        ybufsize = 720*576*6;
     }
 
     fp_temp = fopen("temp.yuv","wb+");

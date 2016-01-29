@@ -23,8 +23,8 @@ int udp::Init()
 
         for(int i=0; i<1; i++)
         {
-            m_VideoEncode[i] = new one_process();
-            m_VideoEncode[i]->Init(i);
+            m_VideoEncode[i] = new one_process(i);
+            m_VideoEncode[i]->Init();
         }
 
         return 0;
