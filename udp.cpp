@@ -16,7 +16,7 @@ int udp::Init()
 
         for(int i=0;i<1;i++){
             m_ChannelGet[i] = new udpsocket();
-            m_ChannelGet[i]->thread_init(i);  //udp接收线程
+            m_ChannelGet[i]->thread_init(1);  //udp接收线程
        //     printf("thread %d create\n",i);
       //      m_ChannelGet[i].ts_demux();     //ts demux线程
         }

@@ -96,7 +96,7 @@ public:
 //    static int write_buffer(void *opaque, uint8_t *buf, int buf_size);
 //    int write_bufferq(uint8_t *buf, int buf_size);
 private:
-
+    int protindex;
 //    AVCodec *pVideoCodec[VIDEO_NUM];
 //    AVCodec *pAudioCodec[AUDIO_NUM];
 //    AVCodecContext *pVideoCodecCtx[VIDEO_NUM];
